@@ -1,0 +1,111 @@
+name: kanopy-sdk-smoke
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: kanopy
+      POSTGRES_PASSWORD: kanopy-sdk-smoke
+      POSTGRES_DB: kanopy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kanopy -d kanopy"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: kanopy
+      MINIO_ROOT_PASSWORD: kanopydev123
+    ports:
+      - "19100:9000"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        mc alias set local http://minio:9000 kanopy kanopydev123 &&
+        mc mb --ignore-existing local/kanopy-local
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  shared-data-init:
+    image: alpine:3.22
+    command: sh -c "mkdir -p /data/uploads && chown -R 1000:1000 /data"
+    restart: "no"
+    volumes:
+      - shared_data:/data
+
+  backend:
+    image: kanopy-sdk-smoke-backend:local
+    build:
+      context: ../../kanopy-backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://kanopy:kanopy-sdk-smoke@db:5432/kanopy
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      ENVIRONMENT: development
+      AUTH_TOKEN_PEPPER: kanopy-sdk-smoke-only-token-pepper
+      ADMIN_EMAILS: sdk-smoke@kanopy.local
+      EMAIL_PROVIDER: console
+      REGISTRATION_REQUIRES_INVITE: "false"
+      DEMO_ENABLED: "false"
+      API_KEY_CONTRACT_MODE: block
+      WEB_CONCURRENCY: "1"
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "2"
+      S3_BUCKET_NAME: kanopy-local
+      S3_ENDPOINT_URL: http://minio:9000
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:19100
+      AWS_ACCESS_KEY_ID: kanopy
+      AWS_SECRET_ACCESS_KEY: kanopydev123
+      STORAGE_DIR: /data
+      SHARED_DATA_DIR: /data
+      UPLOADS_DIR: /data/uploads
+    ports:
+      - "18000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      shared-data-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+    volumes:
+      - shared_data:/data
+
+volumes:
+  postgres_data:
+  minio_data:
+  shared_data:

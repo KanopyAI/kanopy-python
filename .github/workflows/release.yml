@@ -1,0 +1,51 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: python -m pip install --disable-pip-version-check -e ".[dev]" build twine
+      - run: python -m ruff check src tests scripts
+      - run: python -m ruff format --check src tests scripts
+      - run: python -m pytest -q
+      - run: python scripts/check_version.py "${GITHUB_REF_NAME}"
+      - run: python -m build
+      - run: python -m twine check dist/*
+      - run: python scripts/check_dist.py dist
+      - name: Store immutable distributions
+        uses: actions/upload-artifact@v5
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/kanopy-ai
+    permissions:
+      id-token: write
+    steps:
+      - name: Download exactly the distributions built above
+        uses: actions/download-artifact@v6
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish with PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
