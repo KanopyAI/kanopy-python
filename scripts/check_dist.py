@@ -7,7 +7,6 @@ import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
 
-
 BLOCKED_NAMES = {".env", ".git", "__pycache__"}
 BLOCKED_SUFFIXES = {".key", ".pem", ".pyc", ".pyo"}
 REQUIRED_WHEEL_FILES = {

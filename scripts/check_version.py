@@ -7,7 +7,6 @@ import configparser
 import sys
 from pathlib import Path
 
-
 root = Path(__file__).resolve().parents[1]
 config = configparser.ConfigParser()
 config.read(root / "setup.cfg")

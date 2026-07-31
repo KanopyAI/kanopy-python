@@ -4,9 +4,7 @@ This script is executed inside the isolated backend container. The raw key is
 never persisted; the database stores only its hash, just like the public API.
 """
 
-from datetime import datetime, timedelta
-
-from sqlmodel import Session, select
+from datetime import UTC, datetime, timedelta
 
 from app.core.security import generate_bearer_token, hash_bearer_token
 from app.db.models import AuthToken, PlatformRole, User
@@ -17,7 +15,7 @@ from app.services.accounts.organizations import (
     ensure_membership,
     ensure_system_organizations,
 )
-
+from sqlmodel import Session, select
 
 EMAIL = "sdk-smoke@kanopy.local"
 
@@ -50,7 +48,7 @@ with Session(control_engine) as session:
         AuthToken(
             user_id=user.id,
             token_hash=hash_bearer_token(raw_token),
-            expires_at=datetime.utcnow() + timedelta(hours=1),
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
             is_api_key=True,
             name="isolated local SDK smoke test",
         )

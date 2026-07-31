@@ -28,7 +28,7 @@ class KanopyError(Exception):
         self.response = response
 
     @classmethod
-    def from_response(cls, response: httpx.Response) -> "KanopyError":
+    def from_response(cls, response: httpx.Response) -> KanopyError:
         payload: dict[str, Any] = {}
         try:
             parsed = response.json()

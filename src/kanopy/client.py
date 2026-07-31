@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-import time
 import json
 import math
-from contextlib import ExitStack
+import time
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, Iterable, Mapping, Sequence
+from typing import Any, BinaryIO
 
 import httpx
+from typing_extensions import Self
 
 from .errors import KanopyError, KanopyUploadError
 from .models import Page
@@ -134,7 +136,7 @@ class Kanopy:
             follow_redirects=False,
         )
 
-    def __enter__(self) -> "Kanopy":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *_: object) -> None:

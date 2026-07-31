@@ -8,8 +8,8 @@ from pathlib import Path
 from uuid import uuid4
 
 import httpx
-from kanopy import Kanopy, KanopyError
 
+from kanopy import Kanopy, KanopyError
 
 base_url = os.environ.get("SMOKE_BASE_URL", "http://localhost:18000/api/v1")
 api_key = os.environ["SMOKE_API_KEY"]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+
 import httpx
 import pytest
 
@@ -58,9 +59,11 @@ def test_api_error_exposes_kanopy_error_fields() -> None:
             },
         )
 
-    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
-        with pytest.raises(KanopyError) as caught:
-            client.cancel_job("job-1")
+    with (
+        Kanopy("key", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(KanopyError) as caught,
+    ):
+        client.cancel_job("job-1")
 
     error = caught.value
     assert str(error) == "State conflict"
@@ -290,18 +293,20 @@ def test_large_upload_reports_part_failure(tmp_path) -> None:
             json={"url": "https://storage.test/part", "part_number": 1},
         )
 
-    with Kanopy(
-        "key",
-        transport=httpx.MockTransport(api_handler),
-        upload_transport=httpx.MockTransport(lambda request: httpx.Response(500)),
-    ) as client:
-        with pytest.raises(KanopyUploadError) as caught:
-            client.upload_large(
-                video,
-                part_size=5 * 1024 * 1024,
-                max_workers=1,
-                part_retries=1,
-            )
+    with (
+        Kanopy(
+            "key",
+            transport=httpx.MockTransport(api_handler),
+            upload_transport=httpx.MockTransport(lambda request: httpx.Response(500)),
+        ) as client,
+        pytest.raises(KanopyUploadError) as caught,
+    ):
+        client.upload_large(
+            video,
+            part_size=5 * 1024 * 1024,
+            max_workers=1,
+            part_retries=1,
+        )
 
     assert caught.value.part_number == 1
     assert caught.value.status_code == 500
