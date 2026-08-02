@@ -1425,6 +1425,97 @@
         "title": "JobCreate",
         "type": "object"
       },
+      "JobOutputPublic": {
+        "properties": {
+          "download_url": {
+            "description": "Absolute URL that returns this output's bytes.",
+            "title": "Download Url",
+            "type": "string"
+          },
+          "format": {
+            "description": "File format: ply, csv, txt or zip.",
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable identifier, used to download this output.",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "What the output is, e.g. merged_point_cloud or trees_table.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Stored size. Null for outputs rendered on demand (tables, camera poses, packages).",
+            "title": "Size Bytes"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When this output last changed.",
+            "title": "Updated At"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque change token. Unchanged between calls means the bytes are unchanged, so a synchronizing client can skip re-downloading.",
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "format",
+          "download_url"
+        ],
+        "title": "JobOutputPublic",
+        "type": "object"
+      },
+      "JobOutputsResponse": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/JobOutputPublic"
+            },
+            "title": "Outputs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_id",
+          "outputs"
+        ],
+        "title": "JobOutputsResponse",
+        "type": "object"
+      },
       "JobPublic": {
         "description": "Public representation of a reconstruction job.\n\nOmits internal fields: task_id, input_metadata_path, veg_analysis_model,\nveg_analysis_frames_per_region, efs_expires_at, started_processing_at,\npublished_by.",
         "properties": {
@@ -6553,6 +6644,124 @@
           }
         ],
         "summary": "Download Job Folder Zip",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/outputs": {
+      "get": {
+        "description": "Discover what a job produced without hard-coding zip layouts. Each entry carries a stable `id` you can pass to GET /jobs/{job_id}/outputs/{output_id} to download that output on its own.\n\nReturns an empty list \u2014 not a 404 \u2014 for a job that has not produced anything yet, so it is safe to poll after a `job.completed` webhook.\n\nGeoreferenced point clouds are reprojected at packaging time and are not listed individually; fetch them via GET /jobs/{job_id}/folder-zip with `include=point_cloud` and `point_cloud_epsg`.",
+        "operationId": "list_job_output_catalog",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobOutputsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List a job's downloadable outputs",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/outputs/{output_id}": {
+      "get": {
+        "description": "Download a single output by the `id` returned from GET /jobs/{job_id}/outputs. Point clouds on S3-backed jobs answer with a 302 to a short-lived presigned URL, so follow redirects.",
+        "operationId": "download_job_output",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
+          },
+          {
+            "in": "path",
+            "name": "output_id",
+            "required": true,
+            "schema": {
+              "title": "Output Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The output's bytes."
+          },
+          "302": {
+            "description": "Redirect to a short-lived presigned download URL."
+          },
+          "404": {
+            "description": "The job has no output with that id."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download one job output",
         "tags": [
           "jobs"
         ]

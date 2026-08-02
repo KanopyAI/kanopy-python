@@ -99,6 +99,16 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
         "/projects/{project_id}/exports/{export_id}",
         "get_project_export",
     ),
+    "list_job_outputs": (
+        "get",
+        "/jobs/{job_id}/outputs",
+        "list_job_output_catalog",
+    ),
+    "download_job_output": (
+        "get",
+        "/jobs/{job_id}/outputs/{output_id}",
+        "download_job_output",
+    ),
     "download_job_table": (
         "get",
         "/jobs/{job_id}/tables/{table}",
@@ -733,6 +743,24 @@ class Kanopy:
             )
         return self._download_url(str(download_url), destination)
 
+    def list_job_outputs(self, job_id: str) -> list[JsonObject]:
+        """List everything a job produced.
+
+        Each entry carries a stable ``id`` for :meth:`download_job_output`, a
+        ``kind``, a ``format`` and a ``version`` token that only changes when
+        the bytes change. A job that has produced nothing yet returns an empty
+        list rather than raising.
+        """
+        payload = self._object(self._json("GET", f"/jobs/{job_id}/outputs"))
+        outputs = payload.get("outputs")
+        return list(outputs) if isinstance(outputs, list) else []
+
+    def download_job_output(
+        self, job_id: str, output_id: str, destination: str | PathLike[str]
+    ) -> Path:
+        """Download one output listed by :meth:`list_job_outputs`."""
+        return self._download(f"/jobs/{job_id}/outputs/{output_id}", destination)
+
     def download_job_table(
         self, job_id: str, table: str, destination: str | PathLike[str]
     ) -> Path:
@@ -880,14 +908,27 @@ class Kanopy:
         with self._client.stream(
             "GET", path.lstrip("/"), params=filtered_params
         ) as response:
-            if response.is_error:
+            if response.is_redirect:
+                # Outputs stored in object storage answer with a short-lived
+                # presigned URL. Follow it on the credential-free client so the
+                # API key is never sent to the storage host.
+                location = response.headers.get("location")
                 response.read()
-                raise KanopyError.from_response(response)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open("wb") as output:
-                for chunk in response.iter_bytes():
-                    output.write(chunk)
-        return target
+                if not location:
+                    raise KanopyError(
+                        "Download redirect was missing a Location header",
+                        status_code=response.status_code,
+                    )
+            else:
+                if response.is_error:
+                    response.read()
+                    raise KanopyError.from_response(response)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with target.open("wb") as output:
+                    for chunk in response.iter_bytes():
+                        output.write(chunk)
+                return target
+        return self._download_url(location, target)
 
     def _download_url(self, url: str, destination: str | PathLike[str]) -> Path:
         """Stream an absolute, pre-signed storage URL without API credentials."""
