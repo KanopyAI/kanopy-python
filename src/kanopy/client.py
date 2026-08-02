@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import math
 import time
@@ -11,6 +13,8 @@ from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
 from typing import Any, BinaryIO
+from urllib.parse import urlparse
+from xml.sax.saxutils import escape
 
 import httpx
 from typing_extensions import Self
@@ -75,6 +79,16 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
     ),
     "list_project_poles": ("get", "/projects/{project_id}/poles", "list_project_poles"),
     "list_project_spans": ("get", "/projects/{project_id}/spans", "list_project_spans"),
+    "get_project_object_counts": (
+        "get",
+        "/projects/{project_id}/object-counts",
+        "get_project_object_counts",
+    ),
+    "download_audit_events": (
+        "get",
+        "/audit-events/export",
+        "export_audit_events",
+    ),
     "create_project_export": (
         "post",
         "/projects/{project_id}/exports",
@@ -127,7 +141,7 @@ class Kanopy:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
-                "User-Agent": "kanopy-ai-python/0.1.0",
+                "User-Agent": "kanopy-ai-python/0.2.0",
             },
         )
         self._upload_client = httpx.Client(
@@ -616,9 +630,29 @@ class Kanopy:
     def list_project_trees(self, project_id: str, **filters: Any) -> JsonObject:
         return self._inventory("trees", project_id, **filters)
 
-    def get_project_tree(self, project_id: str, tree_id: str) -> JsonObject:
+    def get_project_tree(
+        self,
+        project_id: str,
+        tree_id: str,
+        *,
+        include_observations: bool = False,
+        include_frames: bool = False,
+        include_all_frames: bool = False,
+        include_veg_analyses: bool = False,
+        include_camera_poses: bool = False,
+    ) -> JsonObject:
         return self._object(
-            self._json("GET", f"/projects/{project_id}/trees/{tree_id}")
+            self._json(
+                "GET",
+                f"/projects/{project_id}/trees/{tree_id}",
+                params={
+                    "include_observations": include_observations,
+                    "include_frames": include_frames,
+                    "include_all_frames": include_all_frames,
+                    "include_veg_analyses": include_veg_analyses,
+                    "include_camera_poses": include_camera_poses,
+                },
+            )
         )
 
     def list_project_poles(self, project_id: str, **filters: Any) -> JsonObject:
@@ -626,6 +660,14 @@ class Kanopy:
 
     def list_project_spans(self, project_id: str, **filters: Any) -> JsonObject:
         return self._inventory("spans", project_id, **filters)
+
+    def get_project_object_counts(
+        self, project_id: str, *, job_ids: Sequence[str] = ()
+    ) -> JsonObject:
+        params = [("job_ids", job_id) for job_id in job_ids]
+        return self._object(
+            self._json("GET", f"/projects/{project_id}/object-counts", params=params)
+        )
 
     # Exports and downloads
 
@@ -637,10 +679,149 @@ class Kanopy:
             self._json("GET", f"/projects/{project_id}/exports/{export_id}")
         )
 
+    def wait_for_project_export(
+        self,
+        project_id: str,
+        export_id: str,
+        *,
+        timeout: float = 1800.0,
+        poll_interval: float = 2.0,
+    ) -> JsonObject:
+        """Poll an asynchronous project export until it completes or fails."""
+        deadline = time.monotonic() + timeout
+        while True:
+            export = self.get_project_export(project_id, export_id)
+            status = str(export.get("status", "")).lower()
+            if status == "completed":
+                return export
+            if status == "failed":
+                detail = export.get("error") or "Project export failed"
+                raise KanopyError(str(detail), status_code=409, code="export_failed")
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"Project export {export_id} did not complete within {timeout:g}s"
+                )
+            time.sleep(poll_interval)
+
+    def download_project_export(
+        self,
+        project_id: str,
+        destination: str | PathLike[str],
+        *,
+        timeout: float = 1800.0,
+        poll_interval: float = 2.0,
+    ) -> Path:
+        """Build, wait for, and download a large project archive."""
+        created = self.create_project_export(project_id)
+        export_id = str(created["id"])
+        export = (
+            created
+            if str(created.get("status", "")).lower() == "completed"
+            else self.wait_for_project_export(
+                project_id,
+                export_id,
+                timeout=timeout,
+                poll_interval=poll_interval,
+            )
+        )
+        download_url = export.get("download_url")
+        if not download_url:
+            raise KanopyError(
+                f"Completed project export {export_id} did not include a download URL",
+                status_code=502,
+                code="missing_download_url",
+            )
+        return self._download_url(str(download_url), destination)
+
     def download_job_table(
         self, job_id: str, table: str, destination: str | PathLike[str]
     ) -> Path:
         return self._download(f"/jobs/{job_id}/tables/{table}", destination)
+
+    def download_project_table(
+        self,
+        project_id: str,
+        table: str,
+        destination: str | PathLike[str],
+        *,
+        format: str = "csv",
+        job_id: str | None = None,
+    ) -> Path:
+        """Download project analytics in the formats offered by the platform UI.
+
+        Trees support CSV, JSON, KML, and GeoJSON. Poles and spans support CSV
+        and JSON. Pass ``job_id`` to limit the project-level inventory to one job.
+        """
+        normalized_table = table.strip().lower()
+        normalized_format = format.strip().lower()
+        allowed = {
+            "trees": {"csv", "json", "kml", "geojson"},
+            "poles": {"csv", "json"},
+            "spans": {"csv", "json"},
+        }
+        if normalized_table not in allowed:
+            raise ValueError("table must be one of: trees, poles, spans")
+        if normalized_format not in allowed[normalized_table]:
+            choices = ", ".join(sorted(allowed[normalized_table]))
+            raise ValueError(f"{normalized_table} format must be one of: {choices}")
+
+        rows = self._all_inventory_items(normalized_table, project_id, job_id=job_id)
+        if normalized_format == "csv":
+            content = self._inventory_csv(rows)
+        elif normalized_format == "json":
+            content = json.dumps(
+                {"project_id": project_id, normalized_table: rows},
+                indent=2,
+                default=str,
+            ).encode("utf-8")
+        elif normalized_format == "geojson":
+            content = self._trees_geojson(project_id, rows)
+        else:
+            content = self._trees_kml(project_id, rows)
+
+        target = Path(destination)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        return target
+
+    def download_tree_report(
+        self,
+        project_id: str,
+        tree_id: str,
+        destination: str | PathLike[str],
+    ) -> Path:
+        """Generate a portable tree-analysis PDF from customer-safe API data."""
+        tree = self.get_project_tree(
+            project_id,
+            tree_id,
+            include_observations=True,
+            include_frames=True,
+            include_all_frames=True,
+            include_veg_analyses=True,
+        )
+        return self._analysis_pdf("Tree", tree, destination)
+
+    def download_pole_report(
+        self,
+        project_id: str,
+        pole_id: str,
+        destination: str | PathLike[str],
+    ) -> Path:
+        """Generate a portable pole-analysis PDF from customer-safe API data."""
+        payload = self._inventory(
+            "poles",
+            project_id,
+            pole_id=pole_id,
+            limit=1,
+            include_observations=True,
+            include_frames=True,
+            include_all_frames=True,
+        )
+        poles = payload.get("poles")
+        if not isinstance(poles, list) or not poles:
+            raise KanopyError("Pole not found", status_code=404, code="not_found")
+        pole = self._object(poles[0])
+        return self._analysis_pdf("Pole", pole, destination)
 
     def download_job_folder(
         self,
@@ -657,6 +838,31 @@ class Kanopy:
         self, project_id: str, destination: str | PathLike[str]
     ) -> Path:
         return self._download(f"/projects/{project_id}/folder-zip", destination)
+
+    def download_audit_events(
+        self,
+        destination: str | PathLike[str],
+        *,
+        action: str | None = None,
+        actor_user_id: str | None = None,
+        success: bool | None = None,
+        staff_only: bool | None = None,
+        start: str | None = None,
+        end: str | None = None,
+    ) -> Path:
+        """Download the organization audit log (org admins only) as CSV."""
+        return self._download(
+            "/audit-events/export",
+            destination,
+            params={
+                "action": action,
+                "actor_user_id": actor_user_id,
+                "success": success,
+                "actor_is_staff": staff_only,
+                "from": start,
+                "to": end,
+            },
+        )
 
     def _download(
         self,
@@ -682,3 +888,308 @@ class Kanopy:
                 for chunk in response.iter_bytes():
                     output.write(chunk)
         return target
+
+    def _download_url(self, url: str, destination: str | PathLike[str]) -> Path:
+        """Stream an absolute, pre-signed storage URL without API credentials."""
+        target = Path(destination)
+        with self._upload_client.stream("GET", url) as response:
+            if response.is_error:
+                response.read()
+                raise KanopyError(
+                    f"Export storage returned HTTP {response.status_code}",
+                    status_code=response.status_code,
+                )
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with target.open("wb") as output:
+                for chunk in response.iter_bytes():
+                    output.write(chunk)
+        return target
+
+    def _all_inventory_items(
+        self, kind: str, project_id: str, *, job_id: str | None
+    ) -> list[JsonObject]:
+        key = kind
+        rows: list[JsonObject] = []
+        skip = 0
+        limit = 500
+        while True:
+            params: JsonObject = {"skip": skip, "limit": limit}
+            if job_id is not None:
+                params["job_id"] = job_id
+            payload = self._object(
+                self._json("GET", f"/projects/{project_id}/{kind}", params=params)
+            )
+            page = payload.get(key)
+            if not isinstance(page, list) or not all(
+                isinstance(item, dict) for item in page
+            ):
+                raise TypeError(f"Kanopy API returned {kind} with an unexpected shape")
+            rows.extend(page)
+            total = payload.get("total")
+            if len(page) < limit or (isinstance(total, int) and len(rows) >= total):
+                return rows
+            skip += len(page)
+
+    @staticmethod
+    def _inventory_csv(rows: Sequence[JsonObject]) -> bytes:
+        if not rows:
+            return b""
+        columns = list(rows[0])
+        for row in rows[1:]:
+            columns.extend(key for key in row if key not in columns)
+        output = io.StringIO(newline="")
+        writer = csv.DictWriter(output, fieldnames=columns, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    key: (
+                        json.dumps(value, separators=(",", ":"), default=str)
+                        if isinstance(value, (dict, list))
+                        else value
+                    )
+                    for key, value in row.items()
+                }
+            )
+        return output.getvalue().encode("utf-8")
+
+    @staticmethod
+    def _trees_geojson(project_id: str, rows: Sequence[JsonObject]) -> bytes:
+        features = []
+        for row in rows:
+            latitude = row.get("latitude")
+            longitude = row.get("longitude")
+            if not isinstance(latitude, (int, float)) or not isinstance(
+                longitude, (int, float)
+            ):
+                continue
+            properties = {
+                key: value
+                for key, value in row.items()
+                if key not in {"latitude", "longitude"}
+            }
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [longitude, latitude],
+                    },
+                    "properties": properties,
+                }
+            )
+        return json.dumps(
+            {
+                "type": "FeatureCollection",
+                "name": f"kanopy-trees-{project_id}",
+                "features": features,
+            },
+            indent=2,
+            default=str,
+        ).encode()
+
+    @staticmethod
+    def _trees_kml(project_id: str, rows: Sequence[JsonObject]) -> bytes:
+        placemarks: list[str] = []
+        for row in rows:
+            latitude = row.get("latitude")
+            longitude = row.get("longitude")
+            if not isinstance(latitude, (int, float)) or not isinstance(
+                longitude, (int, float)
+            ):
+                continue
+            tree_id = escape(str(row.get("tree_id") or "Tree"))
+            description = escape(
+                json.dumps(
+                    {
+                        "risk_level": row.get("risk_level"),
+                        "risk_score": row.get("risk_score"),
+                        "minimum_clearance_m": row.get("min_absolute_distance_m"),
+                        "encroachment": row.get("encroachment"),
+                    },
+                    separators=(",", ":"),
+                    default=str,
+                )
+            )
+            altitude = row.get("altitude")
+            coordinate = f"{longitude},{latitude}"
+            if isinstance(altitude, (int, float)):
+                coordinate += f",{altitude}"
+            placemarks.append(
+                "<Placemark>"
+                f"<name>{tree_id}</name>"
+                f"<description>{description}</description>"
+                f"<Point><coordinates>{coordinate}</coordinates></Point>"
+                "</Placemark>"
+            )
+        body = "".join(placemarks)
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'
+            f"<name>{escape(f'Kanopy trees {project_id}')}</name>{body}"
+            "</Document></kml>"
+        ).encode()
+
+    def _analysis_pdf(
+        self, subject: str, record: JsonObject, destination: str | PathLike[str]
+    ) -> Path:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import (
+            Image,
+            PageBreak,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+
+        target = Path(destination)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        styles = getSampleStyleSheet()
+        subject_id = record.get(f"{subject.lower()}_id") or "unknown"
+        story: list[Any] = [
+            Paragraph(f"Kanopy {escape(subject)} analysis", styles["Title"]),
+            Paragraph(
+                f"{escape(subject)} ID: {escape(str(subject_id))}",
+                styles["Heading2"],
+            ),
+            Spacer(1, 0.15 * inch),
+        ]
+
+        preferred = (
+            "risk_level",
+            "risk_score",
+            "status",
+            "worked",
+            "latitude",
+            "longitude",
+            "altitude",
+            "height_m",
+            "radius_m",
+            "min_absolute_distance_m",
+            "min_lateral_clearance_m",
+            "encroachment",
+            "fall_in_risk",
+            "pruning_hull_volume_m3",
+            "tree_hull_volume_m3",
+            "assessment_as_of",
+        )
+        rows = [["Metric", "Value"]]
+        for key in preferred:
+            if key in record and record[key] is not None:
+                rows.append(
+                    [key.replace("_", " ").title(), self._report_value(record[key])]
+                )
+        table = Table(rows, colWidths=[2.4 * inch, 4.5 * inch], repeatRows=1)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#14532d")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.25,
+                        colors.HexColor("#cbd5e1"),
+                    ),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    (
+                        "ROWBACKGROUNDS",
+                        (0, 1),
+                        (-1, -1),
+                        [colors.white, colors.HexColor("#f8fafc")],
+                    ),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+        story.extend([table, Spacer(1, 0.2 * inch)])
+
+        analyses = record.get("veg_analyses") or record.get("ai_analyses") or []
+        if analyses:
+            analysis_text = escape(
+                json.dumps(analyses, indent=2, default=str)[:6000]
+            ).replace("\n", "<br/>")
+            story.extend(
+                [
+                    Paragraph("AI analysis", styles["Heading2"]),
+                    Paragraph(analysis_text, styles["Code"]),
+                    Spacer(1, 0.2 * inch),
+                ]
+            )
+
+        frames = record.get("all_frames") or record.get("frames") or []
+        embedded = 0
+        for frame in frames:
+            if not isinstance(frame, dict):
+                continue
+            image_url = frame.get("imagePath") or frame.get("image_url")
+            if not image_url:
+                continue
+            image_bytes = self._fetch_report_asset(str(image_url))
+            if image_bytes is None:
+                continue
+            if embedded == 0:
+                story.extend(
+                    [PageBreak(), Paragraph("Inspection imagery", styles["Heading2"])]
+                )
+            story.append(
+                Image(
+                    io.BytesIO(image_bytes),
+                    width=6.8 * inch,
+                    height=3.825 * inch,
+                    kind="proportional",
+                )
+            )
+            caption = (
+                frame.get("frameName") or frame.get("frame_name") or frame.get("jobId")
+            )
+            if caption:
+                story.append(Paragraph(escape(str(caption)), styles["Caption"]))
+            story.append(Spacer(1, 0.15 * inch))
+            embedded += 1
+            if embedded >= 6:
+                break
+
+        document = SimpleDocTemplate(
+            str(target),
+            pagesize=letter,
+            title=f"Kanopy {subject} analysis {subject_id}",
+            author="Kanopy AI",
+            leftMargin=0.6 * inch,
+            rightMargin=0.6 * inch,
+            topMargin=0.6 * inch,
+            bottomMargin=0.6 * inch,
+        )
+        document.build(story)
+        return target
+
+    @staticmethod
+    def _report_value(value: Any) -> str:
+        if isinstance(value, bool):
+            return "Yes" if value else "No"
+        if isinstance(value, float):
+            return f"{value:.4f}".rstrip("0").rstrip(".")
+        return str(value)
+
+    def _fetch_report_asset(self, url: str) -> bytes | None:
+        try:
+            parsed = urlparse(url)
+            api_origin = urlparse(str(self._client.base_url))
+            is_presigned = "x-amz-signature=" in url.lower()
+            if is_presigned or (parsed.netloc and parsed.netloc != api_origin.netloc):
+                response = self._upload_client.get(url)
+            else:
+                response = self._client.get(url)
+            return response.content if response.is_success else None
+        except httpx.HTTPError:
+            return None

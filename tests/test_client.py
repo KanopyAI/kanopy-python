@@ -135,6 +135,143 @@ def test_download_streams_to_destination(tmp_path) -> None:
     assert destination.read_bytes() == b"tree_id,risk\n1,high\n"
 
 
+def test_download_project_export_waits_then_fetches_presigned_url(tmp_path) -> None:
+    polls = iter(["running", "completed"])
+    api_requests: list[httpx.Request] = []
+    storage_requests: list[httpx.Request] = []
+
+    def api_handler(request: httpx.Request) -> httpx.Response:
+        api_requests.append(request)
+        if request.method == "POST":
+            return httpx.Response(200, json={"id": "export-1", "status": "queued"})
+        status = next(polls)
+        return httpx.Response(
+            200,
+            json={
+                "id": "export-1",
+                "status": status,
+                "download_url": (
+                    "https://storage.test/project.zip"
+                    if status == "completed"
+                    else None
+                ),
+            },
+        )
+
+    def storage_handler(request: httpx.Request) -> httpx.Response:
+        storage_requests.append(request)
+        return httpx.Response(200, content=b"project archive")
+
+    destination = tmp_path / "project.zip"
+    with Kanopy(
+        "key",
+        transport=httpx.MockTransport(api_handler),
+        upload_transport=httpx.MockTransport(storage_handler),
+    ) as client:
+        result = client.download_project_export(
+            "project-1", destination, timeout=1, poll_interval=0
+        )
+
+    assert result == destination
+    assert destination.read_bytes() == b"project archive"
+    assert [request.method for request in api_requests] == ["POST", "GET", "GET"]
+    assert storage_requests[0].headers.get("Authorization") is None
+
+
+def test_download_audit_events_maps_staff_and_date_filters(tmp_path) -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=b"created_at,action\n")
+
+    destination = tmp_path / "staff-access.csv"
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        client.download_audit_events(
+            destination,
+            staff_only=True,
+            start="2026-07-01T00:00:00Z",
+            end="2026-08-01T00:00:00Z",
+        )
+
+    params = requests[0].url.params
+    assert params["actor_is_staff"] == "true"
+    assert params["from"] == "2026-07-01T00:00:00Z"
+    assert params["to"] == "2026-08-01T00:00:00Z"
+
+
+@pytest.mark.parametrize("format", ["csv", "json", "kml", "geojson"])
+def test_download_project_tree_formats(tmp_path, format: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["limit"] == "500"
+        return httpx.Response(
+            200,
+            json={
+                "trees": [
+                    {
+                        "tree_id": "tree-1",
+                        "latitude": 41.5,
+                        "longitude": -87.6,
+                        "risk_level": "High",
+                        "job_ids": ["job-1"],
+                    }
+                ],
+                "total": 1,
+                "skip": 0,
+                "limit": 500,
+            },
+        )
+
+    destination = tmp_path / f"trees.{format}"
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        client.download_project_table("project-1", "trees", destination, format=format)
+
+    content = destination.read_text()
+    assert "tree-1" in content
+    if format == "geojson":
+        assert json.loads(content)["features"][0]["geometry"]["coordinates"] == [
+            -87.6,
+            41.5,
+        ]
+    if format == "kml":
+        assert "<coordinates>-87.6,41.5</coordinates>" in content
+
+
+def test_download_project_table_rejects_ui_unsupported_format(tmp_path) -> None:
+    with Kanopy("key") as client, pytest.raises(ValueError, match="poles format"):
+        client.download_project_table(
+            "project-1", "poles", tmp_path / "poles.kml", format="kml"
+        )
+
+
+def test_download_tree_report_generates_pdf_from_public_record(tmp_path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["include_all_frames"] == "true"
+        assert request.url.params["include_veg_analyses"] == "true"
+        return httpx.Response(
+            200,
+            json={
+                "tree_id": "tree-1",
+                "status": "active",
+                "risk_level": "High",
+                "risk_score": 82.5,
+                "latitude": 41.5,
+                "longitude": -87.6,
+                "min_absolute_distance_m": 1.2,
+                "veg_analyses": [{"summary": "Priority pruning recommended"}],
+                "frames": [],
+                "all_frames": [],
+            },
+        )
+
+    destination = tmp_path / "tree-analysis.pdf"
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        result = client.download_tree_report("project-1", "tree-1", destination)
+
+    assert result == destination
+    assert destination.read_bytes().startswith(b"%PDF-")
+
+
 def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:
     video = tmp_path / "large-flight.mp4"
     video.write_bytes(b"a" * (5 * 1024 * 1024) + b"tail")
