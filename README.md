@@ -79,6 +79,67 @@ The default uses 64 MiB parts, four parallel workers, and three attempts per
 part. `part_size`, `max_workers`, and `part_retries` are configurable. Memory
 use is approximately `part_size * max_workers` while transfers are active.
 
+## Downloads and exports
+
+Everything operational that can be downloaded from the Kanopy platform is
+available through the API and this SDK. A complete job package contains the
+reconstruction and segmented point clouds, camera poses, trees/poles/spans
+analytics, and summary. Merged PLY point clouds contain the shipped scalar
+measurements as standard vertex properties.
+
+```python
+# Complete job, or only the export-ready point clouds in a chosen metre CRS.
+kanopy.download_job_folder(job_id, "job-results.zip")
+kanopy.download_job_folder(
+    job_id,
+    "point-clouds.zip",
+    include="point_cloud",
+    point_cloud_epsg=26916,
+)
+
+# One job analytics table.
+kanopy.download_job_table(job_id, "trees", "trees.csv")
+
+# Project analytics in platform-compatible portable formats.
+kanopy.download_project_table(project_id, "trees", "trees.csv")
+kanopy.download_project_table(project_id, "trees", "trees.json", format="json")
+kanopy.download_project_table(project_id, "trees", "trees.kml", format="kml")
+kanopy.download_project_table(
+    project_id, "trees", "trees.geojson", format="geojson"
+)
+kanopy.download_project_table(project_id, "poles", "poles.csv")
+kanopy.download_project_table(project_id, "spans", "spans.json", format="json")
+
+# Portable detail reports, including available inspection imagery.
+kanopy.download_tree_report(project_id, tree_id, "tree-analysis.pdf")
+kanopy.download_pole_report(project_id, pole_id, "pole-analysis.pdf")
+```
+
+For a small project, `download_project_folder` streams a complete project ZIP
+directly. For large projects, the async helper creates or reuses a background
+export, polls it, and downloads the resulting presigned archive without sending
+the API credential to object storage:
+
+```python
+kanopy.download_project_export(
+    project_id,
+    "project-results.zip",
+    timeout=60 * 60,
+)
+```
+
+Organization administrators can also export the activity log or the
+staff-access-only report:
+
+```python
+kanopy.download_audit_events("audit-events.csv")
+kanopy.download_audit_events("staff-access.csv", staff_only=True)
+```
+
+Personal privacy archives are deliberately excluded from API-key access. They
+remain available only through an interactive platform session with
+re-authentication.
+
 ## Pagination
 
 List methods return a `Page`. Offset pagination is used by default. Pass
