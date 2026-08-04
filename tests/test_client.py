@@ -521,6 +521,4 @@ def test_download_job_output_follows_presigned_redirect_without_the_api_key(
     assert result == destination
     assert destination.read_bytes() == b"ply bytes"
     # The bearer token must never reach the storage host.
-    assert "authorization" not in {
-        key.lower() for key in storage_requests[0].headers
-    }
+    assert "authorization" not in {key.lower() for key in storage_requests[0].headers}
