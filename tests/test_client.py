@@ -85,12 +85,13 @@ def test_upload_queues_processing_without_manual_submit() -> None:
     video = io.BytesIO(b"video")
     video.name = "flight.mp4"
     metadata = io.BytesIO(b"metadata")
-    metadata.name = "flight.srt"
+    metadata.name = "flight.csv"
 
     with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
         result = client.upload(
             video,
             metadata=metadata,
+            capture_device="drone",
             project_id="project-1",
             title="Flight 1",
             upload_request_id="flight-1",
@@ -109,6 +110,25 @@ def test_upload_queues_processing_without_manual_submit() -> None:
     assert b'form-data; name="project_uuid"' in body
     assert b"project-1" in body
     assert b'filename="flight.mp4"' in body
+    assert b'form-data; name="capture_device"' in body
+    assert b"drone" in body
+
+
+def test_upload_validates_declared_capture_device_sidecars() -> None:
+    video = io.BytesIO(b"video")
+    video.name = "flight.mp4"
+    srt = io.BytesIO(b"subtitle telemetry")
+    srt.name = "flight.srt"
+
+    with Kanopy(
+        "key", transport=httpx.MockTransport(lambda request: httpx.Response(500))
+    ) as client:
+        with pytest.raises(ValueError, match="require a .csv or .txt"):
+            client.upload(video, capture_device="drone")
+        with pytest.raises(ValueError, match="unsupported: flight.srt"):
+            client.upload(video, metadata=srt, capture_device="drone")
+        with pytest.raises(ValueError, match="capture_device must be one of"):
+            client.upload(video, capture_device="gopro")
 
 
 def test_wait_for_job_stops_at_terminal_status() -> None:
@@ -286,6 +306,7 @@ def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:
             assert payload["project_uuid"] == "project-1"
             assert payload["upload_request_id"] == "flight-large-1"
             assert payload["content_length"] == video.stat().st_size
+            assert payload["capture_device"] == "action_cam"
             return httpx.Response(
                 201,
                 json={
@@ -309,6 +330,9 @@ def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:
             first = request.content.index(b'"PartNumber": 1')
             second = request.content.index(b'"PartNumber": 2')
             assert first < second
+            assert b'form-data; name="transcode_config"' in request.content
+            assert b"serverSideUploadPrepRequested" in request.content
+            assert b"sourceVideoPreserved" in request.content
             return httpx.Response(200, json={"job_id": "job-1", "status": "pending"})
         raise AssertionError(f"Unexpected API request: {request.url}")
 
@@ -327,6 +351,7 @@ def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:
             project_id="project-1",
             title="Large flight",
             upload_request_id="flight-large-1",
+            capture_device="action_cam",
             part_size=5 * 1024 * 1024,
             max_workers=2,
             part_retries=1,
@@ -340,6 +365,61 @@ def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:
     ]
     assert progress[-1] == (video.stat().st_size, video.stat().st_size)
     assert not any(request.url.path.endswith("/submit") for request in api_requests)
+
+
+def test_large_drone_upload_requires_supported_flight_log(tmp_path) -> None:
+    video = tmp_path / "flight.mp4"
+    video.write_bytes(b"video")
+    srt = tmp_path / "flight.srt"
+    srt.write_text("telemetry")
+
+    with Kanopy(
+        "key", transport=httpx.MockTransport(lambda request: httpx.Response(500))
+    ) as client:
+        with pytest.raises(ValueError, match="require a .csv or .txt"):
+            client.upload_large(video, capture_device="drone")
+        with pytest.raises(ValueError, match="unsupported: flight.srt"):
+            client.upload_large(video, metadata=srt, capture_device="drone")
+
+
+def test_large_phone_upload_does_not_request_server_prep_by_default(tmp_path) -> None:
+    video = tmp_path / "phone.mp4"
+    video.write_bytes(b"video")
+    completion_bodies: list[bytes] = []
+
+    def api_handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/init-presigned-multipart"):
+            return httpx.Response(
+                201,
+                json={
+                    "job_id": "job-1",
+                    "s3_key": "video.mp4",
+                    "upload_id": "upload-1",
+                    "content_type": "video/mp4",
+                },
+            )
+        if request.url.path.endswith("/presign-part"):
+            return httpx.Response(
+                200,
+                json={"url": "https://storage.test/part", "part_number": 1},
+            )
+        completion_bodies.append(request.content)
+        return httpx.Response(200, json={"job_id": "job-1", "status": "pending"})
+
+    with Kanopy(
+        "key",
+        transport=httpx.MockTransport(api_handler),
+        upload_transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, headers={"ETag": '"etag"'})
+        ),
+    ) as client:
+        client.upload_large(
+            video,
+            capture_device="phone",
+            part_size=5 * 1024 * 1024,
+        )
+
+    assert b"serverSideUploadPrepRequested" not in completion_bodies[0]
 
 
 def test_large_upload_represigns_and_retries_failed_part(tmp_path, monkeypatch) -> None:
