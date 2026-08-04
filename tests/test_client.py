@@ -447,3 +447,78 @@ def test_large_upload_reports_part_failure(tmp_path) -> None:
 
     assert caught.value.part_number == 1
     assert caught.value.status_code == 500
+
+
+def test_list_job_outputs_returns_the_outputs_array() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/jobs/job-1/outputs"
+        return httpx.Response(
+            200,
+            json={
+                "job_id": "job-1",
+                "outputs": [
+                    {
+                        "id": "trees_table",
+                        "kind": "trees_table",
+                        "format": "csv",
+                        "size_bytes": None,
+                        "version": "2026-07-30T14:03:11",
+                        "download_url": "https://api.test/api/v1/jobs/job-1/outputs/trees_table",
+                    }
+                ],
+            },
+        )
+
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        outputs = client.list_job_outputs("job-1")
+
+    assert [output["id"] for output in outputs] == ["trees_table"]
+
+
+def test_list_job_outputs_is_empty_for_a_job_with_no_results() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"job_id": "job-1", "outputs": []})
+
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        assert client.list_job_outputs("job-1") == []
+
+
+def test_download_job_output_streams_inline_bytes(tmp_path) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/jobs/job-1/outputs/trees_table"
+        return httpx.Response(200, content=b"tree_id,risk\n1,high\n")
+
+    destination = tmp_path / "trees.csv"
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        result = client.download_job_output("job-1", "trees_table", destination)
+
+    assert result == destination
+    assert destination.read_bytes() == b"tree_id,risk\n1,high\n"
+
+
+def test_download_job_output_follows_presigned_redirect_without_the_api_key(
+    tmp_path,
+) -> None:
+    storage_requests: list[httpx.Request] = []
+
+    def api_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            302, headers={"location": "https://storage.test/merged.ply?sig=abc"}
+        )
+
+    def storage_handler(request: httpx.Request) -> httpx.Response:
+        storage_requests.append(request)
+        return httpx.Response(200, content=b"ply bytes")
+
+    destination = tmp_path / "merged.ply"
+    with Kanopy(
+        "key",
+        transport=httpx.MockTransport(api_handler),
+        upload_transport=httpx.MockTransport(storage_handler),
+    ) as client:
+        result = client.download_job_output("job-1", "merged_point_cloud", destination)
+
+    assert result == destination
+    assert destination.read_bytes() == b"ply bytes"
+    # The bearer token must never reach the storage host.
+    assert "authorization" not in {key.lower() for key in storage_requests[0].headers}

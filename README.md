@@ -87,6 +87,27 @@ reconstruction and segmented point clouds, camera poses, trees/poles/spans
 analytics, and summary. Merged PLY point clouds contain the shipped scalar
 measurements as standard vertex properties.
 
+To discover what a job produced rather than assuming a ZIP layout, list its
+outputs. Each entry has a stable `id`, a `kind`, a `format`, and a `version`
+token that only changes when the bytes change, so a synchronizing client can
+skip work it has already done:
+
+```python
+for output in kanopy.list_job_outputs(job_id):
+    if output["kind"] != "merged_point_cloud":
+        continue
+    if output["version"] == seen.get(output["id"]):
+        continue
+    kanopy.download_job_output(job_id, output["id"], f"{output['id']}.ply")
+    seen[output["id"]] = output["version"]
+```
+
+A job that has not produced anything yet returns an empty list rather than
+raising, so this is safe to call as soon as a `job.completed` webhook arrives.
+Outputs stored in object storage are served through a short-lived presigned
+URL, which the SDK follows without ever sending your API key to the storage
+host.
+
 ```python
 # Complete job, or only the export-ready point clouds in a chosen metre CRS.
 kanopy.download_job_folder(job_id, "job-results.zip")
