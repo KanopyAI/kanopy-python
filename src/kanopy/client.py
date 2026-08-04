@@ -30,6 +30,8 @@ MAX_MULTIPART_PART_SIZE = 5 * 1024 * 1024 * 1024
 MAX_MULTIPART_OBJECT_SIZE = 5 * 1024 * 1024 * 1024 * 1024
 JsonObject = dict[str, Any]
 ProgressCallback = Callable[[int, int], None]
+VALID_CAPTURE_DEVICES = frozenset({"drone", "action_cam", "phone"})
+FLIGHT_LOG_SUFFIXES = frozenset({".csv", ".txt"})
 
 # Public contract operations used by this first SDK surface. Contract tests
 # verify both the method/path and stable OpenAPI operation ID.
@@ -335,12 +337,20 @@ class Kanopy:
         video: str | PathLike[str] | BinaryIO,
         *,
         metadata: str | PathLike[str] | BinaryIO | None = None,
+        metadata_files: Sequence[str | PathLike[str] | BinaryIO] = (),
+        gps_track: str | PathLike[str] | BinaryIO | None = None,
+        capture_device: str | None = None,
         project_id: str | None = None,
         title: str | None = None,
         job_id: str | None = None,
         upload_request_id: str | None = None,
         **fields: Any,
     ) -> JsonObject:
+        self._validate_upload_sidecars(
+            capture_device=capture_device,
+            metadata=metadata,
+            metadata_files=metadata_files,
+        )
         data: dict[str, str] = {
             key: str(value).lower() if isinstance(value, bool) else str(value)
             for key, value in fields.items()
@@ -364,19 +374,30 @@ class Kanopy:
             data["project_uuid"] = project_id
         if title is not None:
             data["title"] = title
+        if capture_device is not None:
+            data["capture_device"] = capture_device
 
         with ExitStack() as stack:
             video_name, video_file = self._open_upload(video, stack)
-            files: dict[str, tuple[str, BinaryIO, str]] = {
-                "video": (video_name, video_file, "video/mp4")
-            }
+            files: list[tuple[str, tuple[str, BinaryIO, str]]] = [
+                ("video", (video_name, video_file, "video/mp4"))
+            ]
             if metadata is not None:
                 metadata_name, metadata_file = self._open_upload(metadata, stack)
-                files["metadata"] = (
-                    metadata_name,
-                    metadata_file,
-                    "application/octet-stream",
+                files.append(
+                    (
+                        "metadata",
+                        (metadata_name, metadata_file, "application/octet-stream"),
+                    )
                 )
+            for item in metadata_files:
+                name, file_obj = self._open_upload(item, stack)
+                files.append(
+                    ("metadata_files", (name, file_obj, "application/octet-stream"))
+                )
+            if gps_track is not None:
+                name, file_obj = self._open_upload(gps_track, stack)
+                files.append(("gps_track_file", (name, file_obj, "application/json")))
             return self._object(self._json("POST", "/upload", data=data, files=files))
 
     def init_presigned_multipart_upload(self, **job_options: Any) -> JsonObject:
@@ -471,6 +492,8 @@ class Kanopy:
         metadata: str | PathLike[str] | BinaryIO | None = None,
         metadata_files: Sequence[str | PathLike[str] | BinaryIO] = (),
         gps_track: str | PathLike[str] | BinaryIO | None = None,
+        capture_device: str | None = None,
+        server_side_upload_prep: bool | None = None,
         project_id: str | None = None,
         title: str | None = None,
         upload_request_id: str | None = None,
@@ -485,8 +508,24 @@ class Kanopy:
         """Upload a large video directly to storage and queue reconstruction.
 
         ``job_options`` maps to the remaining public multipart-init fields,
-        including capture, circuit, voltage, and clearance settings.
+        including circuit, voltage, and clearance settings. Declared drone
+        uploads require a CSV/TXT flight log. Untrimmed drone and action-camera
+        uploads request background server preparation by default; pass
+        ``server_side_upload_prep=False`` to retain synchronous finalization.
         """
+        self._validate_upload_sidecars(
+            capture_device=capture_device,
+            metadata=metadata,
+            metadata_files=metadata_files,
+        )
+        if server_side_upload_prep is True and capture_device not in {
+            "drone",
+            "action_cam",
+        }:
+            raise ValueError(
+                "server_side_upload_prep is supported for declared drone and "
+                "action_cam uploads"
+            )
         path = Path(video)
         total_size = path.stat().st_size
         if total_size <= 0:
@@ -516,6 +555,8 @@ class Kanopy:
             init_options["project_uuid"] = project_id
         if upload_request_id is not None:
             init_options["upload_request_id"] = upload_request_id
+        if capture_device is not None:
+            init_options["capture_device"] = capture_device
         initialized = self.init_presigned_multipart_upload(**init_options)
         job_id = str(initialized["job_id"])
         s3_key = str(initialized["s3_key"])
@@ -549,6 +590,30 @@ class Kanopy:
                     progress(transferred, total_size)
 
         uploaded.sort(key=lambda part: int(part["PartNumber"]))
+        effective_completion_fields = dict(completion_fields or {})
+        use_server_prep = server_side_upload_prep
+        if use_server_prep is None:
+            use_server_prep = capture_device in {"drone", "action_cam"}
+        if use_server_prep:
+            raw_config = effective_completion_fields.get("transcode_config")
+            if isinstance(raw_config, str):
+                try:
+                    parsed_config = json.loads(raw_config)
+                except json.JSONDecodeError:
+                    parsed_config = {}
+            elif isinstance(raw_config, Mapping):
+                parsed_config = dict(raw_config)
+            else:
+                parsed_config = {}
+            parsed_config.update(
+                {
+                    "clientTranscodeSkipped": True,
+                    "serverSideUploadPrepRequested": True,
+                    "sourceVideoPreserved": True,
+                }
+            )
+            effective_completion_fields["transcode_config"] = parsed_config
+
         return self.complete_presigned_multipart_upload(
             job_id=job_id,
             s3_key=s3_key,
@@ -558,7 +623,7 @@ class Kanopy:
             metadata_files=metadata_files,
             gps_track=gps_track,
             original_filename=path.name,
-            completion_fields=completion_fields,
+            completion_fields=effective_completion_fields,
         )
 
     def upload_large(self, video: str | PathLike[str], **kwargs: Any) -> JsonObject:
@@ -628,6 +693,40 @@ class Kanopy:
         if hasattr(value, "seek"):
             value.seek(0)
         return name, value
+
+    @staticmethod
+    def _upload_name(value: str | PathLike[str] | BinaryIO) -> str:
+        if isinstance(value, (str, PathLike)):
+            return Path(value).name
+        return Path(str(getattr(value, "name", "upload.bin"))).name
+
+    @classmethod
+    def _validate_upload_sidecars(
+        cls,
+        *,
+        capture_device: str | None,
+        metadata: str | PathLike[str] | BinaryIO | None,
+        metadata_files: Sequence[str | PathLike[str] | BinaryIO],
+    ) -> None:
+        if capture_device is not None and capture_device not in VALID_CAPTURE_DEVICES:
+            allowed = ", ".join(sorted(VALID_CAPTURE_DEVICES))
+            raise ValueError(f"capture_device must be one of: {allowed}")
+
+        sidecars = ([metadata] if metadata is not None else []) + list(metadata_files)
+        if capture_device == "drone" and not sidecars:
+            raise ValueError("drone uploads require a .csv or .txt flight log")
+        if capture_device == "drone":
+            unsupported = [
+                cls._upload_name(item)
+                for item in sidecars
+                if Path(cls._upload_name(item)).suffix.lower()
+                not in FLIGHT_LOG_SUFFIXES
+            ]
+            if unsupported:
+                raise ValueError(
+                    "drone flight logs must use .csv or .txt; unsupported: "
+                    + ", ".join(unsupported)
+                )
 
     # Inventory
 

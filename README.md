@@ -38,7 +38,8 @@ with Kanopy(api_key="kpy_live_...") as kanopy:
     )
     upload = kanopy.upload(
         "flight.mp4",
-        metadata="flight.srt",
+        metadata="flight.csv",
+        capture_device="drone",
         project_id=project["id"],
         title="North corridor flight 01",
         upload_request_id="north-corridor-flight-01",
@@ -65,7 +66,7 @@ def report_progress(sent: int, total: int) -> None:
 
 upload = kanopy.upload_large(
     "large-flight.mp4",
-    metadata="flight.srt",
+    metadata="flight.txt",
     project_id=project["id"],
     title="North corridor flight 02",
     upload_request_id="north-corridor-flight-02",
@@ -78,6 +79,44 @@ upload = kanopy.upload_large(
 The default uses 64 MiB parts, four parallel workers, and three attempts per
 part. `part_size`, `max_workers`, and `part_retries` are configurable. Memory
 use is approximately `part_size * max_workers` while transfers are active.
+
+`upload_large` sends the original source bytes without client-side compression.
+For declared `drone` and `action_cam` uploads it requests background server
+preparation by default: Kanopy validates and localizes the original, normalizes
+GPS, and extracts reconstruction frames at the configured processing rate. It
+does not create a compressed replacement for the source. Pass
+`server_side_upload_prep=False` only when an integration must retain the legacy
+synchronous completion path.
+
+## Video and GPS inputs
+
+Declare `capture_device` so the SDK can validate the upload before transferring
+a large video:
+
+| Capture device | Video | GPS/metadata contract |
+| --- | --- | --- |
+| `drone` | Original inspection video | One or more `.csv` or `.txt` flight logs are required. Encrypted DJI `.txt` logs are converted server-side. |
+| `action_cam` | Original GoPro/action-camera MP4 | A separate flight log is optional. Kanopy can extract embedded GoPro GPMF GPS; do not transcode the source before upload. |
+| `phone` | Original phone video | GPS is optional; provide canonical `gps_track.json` when georeferencing is required. |
+
+For multiple drone logs, pass `metadata_files=[...]`. A canonical GPS track can
+be supplied with `gps_track="gps_track.json"`. `.srt` subtitle files are not a
+supported flight-log input.
+
+Omitting `capture_device` remains supported for compatibility with older SDK
+integrations, but it skips client-side combination validation and does not opt
+the upload into background server preparation. New integrations should always
+declare it.
+
+```python
+# GoPro GPS is embedded in the original MP4.
+upload = kanopy.upload_large(
+    "GX010123.MP4",
+    capture_device="action_cam",
+    project_id=project["id"],
+    title="North corridor action-camera run",
+)
+```
 
 ## Downloads and exports
 
