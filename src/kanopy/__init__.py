@@ -5,4 +5,4 @@ from .errors import KanopyError, KanopyUploadError
 from .models import Page
 
 __all__ = ["DEFAULT_BASE_URL", "Kanopy", "KanopyError", "KanopyUploadError", "Page"]
-__version__ = "0.2.0"
+__version__ = "0.3.0"
