@@ -1288,6 +1288,360 @@
         "title": "InviteCodePublic",
         "type": "object"
       },
+      "JobApiPublic": {
+        "description": "Stable job representation for API-key reads.\n\nBrowser sessions use :class:`JobPublic` because operational UI features\nneed storage and migration state. Integrations should not receive backend\npaths, bucket names, migration controls, or cleanup-assignment metadata.",
+        "properties": {
+          "capture_device": {
+            "$ref": "#/components/schemas/CaptureDevice",
+            "default": "drone"
+          },
+          "circuit_clearance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Circuit Clearance M"
+          },
+          "circuit_count": {
+            "default": 1,
+            "title": "Circuit Count",
+            "type": "integer"
+          },
+          "circuit_width_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Circuit Width M"
+          },
+          "conductor_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conductor Class"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "flight_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Flight Latitude"
+          },
+          "flight_location_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Flight Location Title"
+          },
+          "flight_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Flight Longitude"
+          },
+          "flight_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Flight State"
+          },
+          "flight_state_abbr": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Flight State Abbr"
+          },
+          "has_reconstruction_video": {
+            "default": false,
+            "title": "Has Reconstruction Video",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_video_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Input Video Size Bytes"
+          },
+          "is_360_video": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is 360 Video"
+          },
+          "job_folder_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Job Folder Size Bytes"
+          },
+          "job_length_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Job Length M"
+          },
+          "line_clearance_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Line Clearance Enabled"
+          },
+          "metric_accuracy_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metric Accuracy M"
+          },
+          "metric_accuracy_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Metric Accuracy Pct"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Organization Id"
+          },
+          "phase_count": {
+            "default": 2,
+            "title": "Phase Count",
+            "type": "integer"
+          },
+          "progress_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Progress Detail"
+          },
+          "progress_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Progress Pct"
+          },
+          "progress_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Progress Stage"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          },
+          "project_uuid": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "deprecated": true,
+            "description": "Deprecated alias for project_id; retained for v1 compatibility.",
+            "title": "Project Uuid"
+          },
+          "published": {
+            "default": true,
+            "title": "Published",
+            "type": "boolean"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Published At"
+          },
+          "risk_refreshed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Risk Refreshed At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "voltage_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Voltage Class"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "JobApiPublic",
+        "type": "object"
+      },
       "JobCreate": {
         "description": "Payload for creating a new job.",
         "properties": {
@@ -6274,9 +6628,8 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/JobPublic"
+                    "$ref": "#/components/schemas/JobApiPublic"
                   },
-                  "title": "Response List Jobs Api V1 Jobs Get",
                   "type": "array"
                 }
               }
@@ -6422,7 +6775,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobPublic"
+                  "$ref": "#/components/schemas/JobApiPublic"
                 }
               }
             },
@@ -7458,9 +7811,8 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/JobPublic"
+                    "$ref": "#/components/schemas/JobApiPublic"
                   },
-                  "title": "Response List Project Jobs Api V1 Projects  Project Id  Jobs Get",
                   "type": "array"
                 }
               }

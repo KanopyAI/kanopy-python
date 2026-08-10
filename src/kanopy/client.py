@@ -7,7 +7,7 @@ import io
 import json
 import math
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 from os import PathLike
@@ -237,6 +237,20 @@ class Kanopy:
         )
         return self._page(response)
 
+    def iter_projects(self, *, limit: int = 100) -> Iterator[JsonObject]:
+        """Yield every accessible project using stable cursor pagination."""
+        cursor = ""
+        seen_cursors: set[str] = set()
+        while True:
+            page = self.list_projects(cursor=cursor, limit=limit)
+            yield from page.items
+            if not page.next_cursor:
+                return
+            if page.next_cursor in seen_cursors:
+                raise RuntimeError("Kanopy API returned a repeated project cursor")
+            seen_cursors.add(page.next_cursor)
+            cursor = page.next_cursor
+
     def create_project(
         self, *, name: str, description: str | None = None
     ) -> JsonObject:
@@ -271,11 +285,35 @@ class Kanopy:
         limit: int = 50,
         cursor: str | None = None,
         project_id: str | None = None,
+        skip_count: bool = False,
     ) -> Page[JsonObject]:
         params = self._pagination_params(skip=skip, limit=limit, cursor=cursor)
         if project_id is not None:
             params["project_id"] = project_id
+        if skip_count:
+            params["skip_count"] = True
         return self._page(self._request("GET", "/jobs", params=params))
+
+    def iter_jobs(
+        self, *, limit: int = 100, project_id: str | None = None
+    ) -> Iterator[JsonObject]:
+        """Yield every accessible job using stable cursor pagination."""
+        cursor = ""
+        seen_cursors: set[str] = set()
+        while True:
+            page = self.list_jobs(
+                cursor=cursor,
+                limit=limit,
+                project_id=project_id,
+                skip_count=bool(cursor),
+            )
+            yield from page.items
+            if not page.next_cursor:
+                return
+            if page.next_cursor in seen_cursors:
+                raise RuntimeError("Kanopy API returned a repeated job cursor")
+            seen_cursors.add(page.next_cursor)
+            cursor = page.next_cursor
 
     def list_project_jobs(
         self, project_id: str, *, skip: int = 0, limit: int = 50

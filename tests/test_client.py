@@ -47,6 +47,49 @@ def test_cursor_page_preserves_contract_headers() -> None:
     assert page.has_next
 
 
+@pytest.mark.parametrize(
+    ("iterator_name", "path"),
+    [("iter_projects", "/api/v1/projects"), ("iter_jobs", "/api/v1/jobs")],
+)
+def test_iterators_walk_cursor_pages(iterator_name: str, path: str) -> None:
+    cursors: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == path
+        cursor = request.url.params["cursor"]
+        cursors.append(cursor)
+        if cursor == "":
+            assert "skip_count" not in request.url.params
+            return httpx.Response(
+                200,
+                json=[{"id": "first"}],
+                headers={"X-Next-Cursor": "page-2", "X-Total-Count": "2"},
+            )
+        assert cursor == "page-2"
+        if iterator_name == "iter_jobs":
+            assert request.url.params["skip_count"] == "true"
+        return httpx.Response(
+            200,
+            json=[{"id": "second"}],
+            headers={"X-Total-Count": "2"},
+        )
+
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        items = list(getattr(client, iterator_name)())
+
+    assert items == [{"id": "first"}, {"id": "second"}]
+    assert cursors == ["", "page-2"]
+
+
+def test_iter_jobs_forwards_project_filter() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["project_id"] == "project-1"
+        return httpx.Response(200, json=[])
+
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        assert list(client.iter_jobs(project_id="project-1")) == []
+
+
 def test_api_error_exposes_kanopy_error_fields() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
