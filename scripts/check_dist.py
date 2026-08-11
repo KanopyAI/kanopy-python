@@ -69,8 +69,7 @@ if missing or unexpected_top_level:
 
 for required in REQUIRED_LICENSE_FILES:
     if not any(
-        name.endswith(f".dist-info/{required}")
-        or name.endswith(f".dist-info/licenses/{required}")
+        name.endswith((f".dist-info/{required}", f".dist-info/licenses/{required}"))
         for name in wheel_contents
     ):
         raise SystemExit(f"wheel is missing {required}")
