@@ -7,6 +7,7 @@ import io
 import json
 import math
 import time
+import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
@@ -19,10 +20,15 @@ from xml.sax.saxutils import escape
 import httpx
 from typing_extensions import Self
 
+from ._version import __version__
 from .errors import KanopyError, KanopyUploadError
 from .models import Page
 
 DEFAULT_BASE_URL = "https://app.kanopy-ai.com/api/v1"
+# Bounded, opt-out retry on 429: the platform sends Retry-After on every
+# throttle response; honoring it is part of the API contract.
+MAX_RATE_LIMIT_RETRIES = 2
+MAX_RETRY_AFTER_SECONDS = 120.0
 DEFAULT_MULTIPART_PART_SIZE = 64 * 1024 * 1024
 MIN_MULTIPART_PART_SIZE = 5 * 1024 * 1024
 MAX_MULTIPART_PARTS = 10_000
@@ -153,7 +159,7 @@ class Kanopy:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
-                "User-Agent": "kanopy-ai-python/0.2.0",
+                "User-Agent": f"kanopy-ai-python/{__version__}",
             },
         )
         self._upload_client = httpx.Client(
@@ -173,10 +179,25 @@ class Kanopy:
         self._upload_client.close()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        response = self._client.request(method, path.lstrip("/"), **kwargs)
-        if response.is_error:
-            raise KanopyError.from_response(response)
-        return response
+        for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+            response = self._client.request(method, path.lstrip("/"), **kwargs)
+            if response.status_code == 429 and attempt < MAX_RATE_LIMIT_RETRIES:
+                time.sleep(self._retry_after_seconds(response, attempt))
+                continue
+            if response.is_error:
+                raise KanopyError.from_response(response)
+            return response
+        raise KanopyError.from_response(response)
+
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response, attempt: int) -> float:
+        """Honor the server's Retry-After, falling back to capped backoff."""
+        raw = response.headers.get("Retry-After")
+        try:
+            seconds = float(raw) if raw is not None else 2.0 * 2**attempt
+        except ValueError:
+            seconds = 2.0 * 2**attempt
+        return max(0.0, min(seconds, MAX_RETRY_AFTER_SECONDS))
 
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:
         response = self._request(method, path, **kwargs)
@@ -1360,14 +1381,31 @@ class Kanopy:
         return str(value)
 
     def _fetch_report_asset(self, url: str) -> bytes | None:
+        """Fetch report imagery WITHOUT ever attaching the API key.
+
+        Asset URLs come from server payloads (frame image paths). They are
+        expected to be presigned or otherwise publicly fetchable; the paths
+        are not part of the integration contract, so sending the customer's
+        credential to whatever string the payload contains is never correct —
+        neither same-origin (out-of-contract, rejected in block mode) nor
+        cross-origin (credential replay to a third party).
+        """
         try:
-            parsed = urlparse(url)
-            api_origin = urlparse(str(self._client.base_url))
-            is_presigned = "x-amz-signature=" in url.lower()
-            if is_presigned or (parsed.netloc and parsed.netloc != api_origin.netloc):
-                response = self._upload_client.get(url)
-            else:
-                response = self._client.get(url)
-            return response.content if response.is_success else None
+            # Resolve relative paths against the API origin so the request is
+            # well-formed — still on the credential-free client.
+            resolved = str(httpx.URL(str(self._client.base_url)).join(url))
+            response = self._upload_client.get(resolved, follow_redirects=True)
+            if not response.is_success:
+                warnings.warn(
+                    f"Report image could not be fetched (HTTP {response.status_code}); "
+                    "the generated report will omit it.",
+                    stacklevel=2,
+                )
+                return None
+            return response.content
         except httpx.HTTPError:
+            warnings.warn(
+                "Report image could not be fetched; the generated report will omit it.",
+                stacklevel=2,
+            )
             return None
