@@ -131,6 +131,10 @@ outputs. Each entry has a stable `id`, a `kind`, a `format`, and a `version`
 token that only changes when the bytes change, so a synchronizing client can
 skip work it has already done:
 
+`size_bytes` is populated for stored files and is `None` for tables, camera
+poses, and packages rendered on demand; downloading those assets is the first
+time their final byte size is known.
+
 ```python
 for output in kanopy.list_job_outputs(job_id):
     if output["kind"] != "merged_point_cloud":
@@ -202,8 +206,16 @@ re-authentication.
 
 ## Pagination
 
-List methods return a `Page`. Offset pagination is used by default. Pass
-`cursor=""` to start keyset pagination, then use `page.next_cursor`:
+List methods return a `Page`. Offset pagination is used by default. For a full
+scan, the iterator helpers handle keyset cursors automatically:
+
+```python
+for job in kanopy.iter_jobs(limit=100):
+    print(job["id"], job["status"])
+```
+
+Pass `cursor=""` directly when you need page boundaries or pagination
+metadata, then use `page.next_cursor`:
 
 ```python
 page = kanopy.list_jobs(cursor="", limit=100)
