@@ -14,7 +14,6 @@ from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
 from typing import Any, BinaryIO
-from urllib.parse import urlparse
 from xml.sax.saxutils import escape
 
 import httpx
