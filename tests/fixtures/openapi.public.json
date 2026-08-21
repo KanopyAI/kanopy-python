@@ -2575,6 +2575,20 @@
             ],
             "title": "Pole Subclass Label"
           },
+          "pole_subclass_label_sources_by_job_id": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Pole Subclass Label Sources By Job Id",
+            "type": "object"
+          },
+          "pole_subclass_labels_by_job_id": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Pole Subclass Labels By Job Id",
+            "type": "object"
+          },
           "project_id": {
             "anyOf": [
               {
@@ -4877,7 +4891,7 @@
       "WebhookCreate": {
         "properties": {
           "events": {
-            "description": "Events to subscribe to. Empty list = all events. Valid values: ['cleanup.completed', 'job.canceled', 'job.cleaned', 'job.completed', 'job.failed', 'job.processing', 'job.published', 'job.uploaded']",
+            "description": "Events to subscribe to. For customer organizations, empty means all customer events (['job.published', 'job.uploaded']). Internal lifecycle events remain available only to Kanopy staff. Valid values: ['cleanup.completed', 'job.canceled', 'job.cleaned', 'job.completed', 'job.failed', 'job.processing', 'job.published', 'job.uploaded']",
             "items": {
               "type": "string"
             },
@@ -5092,6 +5106,7 @@
                 "type": "null"
               }
             ],
+            "description": "Deprecated; receiver response bodies are never retained or returned",
             "title": "Response Body"
           },
           "response_status": {
@@ -5123,7 +5138,6 @@
           "job_id",
           "attempt",
           "response_status",
-          "response_body",
           "error",
           "delivered_at",
           "success"
@@ -5221,6 +5235,31 @@
           "updated_at"
         ],
         "title": "WebhookPublic",
+        "type": "object"
+      },
+      "WebhookSecretRotated": {
+        "properties": {
+          "previous_secret_valid_until": {
+            "format": "date-time",
+            "title": "Previous Secret Valid Until",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "webhook_id": {
+            "format": "uuid",
+            "title": "Webhook Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhook_id",
+          "secret",
+          "previous_secret_valid_until"
+        ],
+        "title": "WebhookSecretRotated",
         "type": "object"
       },
       "WebhookUpdate": {
@@ -8351,7 +8390,8 @@
     },
     "/upload/inspect-action-video": {
       "post": {
-        "description": "Inspect an action-camera video to extract GPS coordinates for gating uploads.\n\nAlso extracts the full GPS track for use in reconstruction, since the frontend's\ngopro-telemetry library has issues with GPS9 format from Hero 9+ cameras.",
+        "deprecated": true,
+        "description": "Deprecated: action-cam GPS extraction happens during server upload prep on\nthe raw object (worker/server_upload_prep.py); this endpoint requires a\nduplicate full upload and parses the file twice. No frontend callers remain.\n\nInspect an action-camera video to extract GPS coordinates for gating uploads.",
         "operationId": "inspect_action_video",
         "requestBody": {
           "content": {
@@ -8816,6 +8856,54 @@
           }
         ],
         "summary": "List recent deliveries",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/webhooks/{webhook_id}/rotate-secret": {
+      "post": {
+        "operationId": "rotate_webhook_secret",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "webhook_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Webhook Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretRotated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate a webhook signing secret",
         "tags": [
           "webhooks"
         ]
