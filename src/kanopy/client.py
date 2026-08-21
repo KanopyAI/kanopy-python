@@ -6,7 +6,10 @@ import csv
 import io
 import json
 import math
+import os
+import random
 import time
+from uuid import uuid4
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,6 +36,10 @@ MIN_MULTIPART_PART_SIZE = 5 * 1024 * 1024
 MAX_MULTIPART_PARTS = 10_000
 MAX_MULTIPART_PART_SIZE = 5 * 1024 * 1024 * 1024
 MAX_MULTIPART_OBJECT_SIZE = 5 * 1024 * 1024 * 1024 * 1024
+MAX_BUFFERED_PART_SIZE = 256 * 1024 * 1024
+MAX_MULTIPART_BUFFER_MEMORY = 512 * 1024 * 1024
+RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+RETRYABLE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 JsonObject = dict[str, Any]
 ProgressCallback = Callable[[int, int], None]
 VALID_CAPTURE_DEVICES = frozenset({"drone", "action_cam", "phone"})
@@ -77,6 +84,11 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
         "post",
         "/upload/complete-presigned-multipart",
         "complete_presigned_multipart_upload",
+    ),
+    "abort_presigned_multipart_upload": (
+        "post",
+        "/upload/abort-presigned-multipart",
+        "abort_presigned_multipart_upload",
     ),
     "list_project_trees": ("get", "/projects/{project_id}/trees", "list_project_trees"),
     "get_project_tree": (
@@ -178,9 +190,24 @@ class Kanopy:
         self._upload_client.close()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        normalized_method = method.upper()
+        headers = kwargs.get("headers") or {}
+        retryable = normalized_method in RETRYABLE_METHODS or any(
+            str(name).lower() == "idempotency-key" for name in headers
+        )
         for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
-            response = self._client.request(method, path.lstrip("/"), **kwargs)
-            if response.status_code == 429 and attempt < MAX_RATE_LIMIT_RETRIES:
+            try:
+                response = self._client.request(method, path.lstrip("/"), **kwargs)
+            except httpx.TransportError:
+                if not retryable or attempt >= MAX_RATE_LIMIT_RETRIES:
+                    raise
+                time.sleep(self._backoff_seconds(attempt))
+                continue
+            if (
+                retryable
+                and response.status_code in RETRYABLE_STATUS_CODES
+                and attempt < MAX_RATE_LIMIT_RETRIES
+            ):
                 time.sleep(self._retry_after_seconds(response, attempt))
                 continue
             if response.is_error:
@@ -193,10 +220,18 @@ class Kanopy:
         """Honor the server's Retry-After, falling back to capped backoff."""
         raw = response.headers.get("Retry-After")
         try:
-            seconds = float(raw) if raw is not None else 2.0 * 2**attempt
+            seconds = (
+                float(raw) if raw is not None else Kanopy._backoff_seconds(attempt)
+            )
         except ValueError:
-            seconds = 2.0 * 2**attempt
+            seconds = Kanopy._backoff_seconds(attempt)
         return max(0.0, min(seconds, MAX_RETRY_AFTER_SECONDS))
+
+    @staticmethod
+    def _backoff_seconds(attempt: int) -> float:
+        return min(
+            MAX_RETRY_AFTER_SECONDS, (1.0 * 2**attempt) + random.uniform(0.0, 0.5)
+        )
 
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:
         response = self._request(method, path, **kwargs)
@@ -543,6 +578,15 @@ class Kanopy:
                 )
             )
 
+    def abort_presigned_multipart_upload(
+        self, *, job_id: str, s3_key: str, upload_id: str
+    ) -> None:
+        self._json(
+            "POST",
+            "/upload/abort-presigned-multipart",
+            json={"job_id": job_id, "s3_key": s3_key, "upload_id": upload_id},
+        )
+
     def upload_multipart(
         self,
         video: str | PathLike[str],
@@ -596,6 +640,10 @@ class Kanopy:
             )
         if part_size > MAX_MULTIPART_PART_SIZE:
             raise ValueError("part_size must not exceed 5 GiB")
+        if part_size > MAX_BUFFERED_PART_SIZE:
+            raise ValueError(
+                "part_size must not exceed 256 MiB in the buffered uploader"
+            )
         if max_workers < 1 or max_workers > 32:
             raise ValueError("max_workers must be in the range 1..32")
         if part_retries < 1:
@@ -603,6 +651,10 @@ class Kanopy:
 
         required_part_size = math.ceil(total_size / MAX_MULTIPART_PARTS)
         effective_part_size = max(part_size, required_part_size)
+        if effective_part_size > MAX_BUFFERED_PART_SIZE:
+            raise ValueError(
+                "video requires multipart parts larger than the SDK's 256 MiB memory bound"
+            )
         part_count = math.ceil(total_size / effective_part_size)
 
         init_options = dict(job_options)
@@ -622,30 +674,48 @@ class Kanopy:
 
         uploaded: list[dict[str, Any]] = []
         transferred = 0
-        with ThreadPoolExecutor(max_workers=min(max_workers, part_count)) as executor:
-            futures = {
-                executor.submit(
-                    self._upload_part,
-                    path,
-                    offset=(part_number - 1) * effective_part_size,
-                    size=min(
-                        effective_part_size,
-                        total_size - (part_number - 1) * effective_part_size,
-                    ),
-                    job_id=job_id,
-                    s3_key=s3_key,
-                    upload_id=upload_id,
-                    part_number=part_number,
-                    attempts=part_retries,
-                ): part_number
-                for part_number in range(1, part_count + 1)
-            }
-            for future in as_completed(futures):
-                part, byte_count = future.result()
-                uploaded.append(part)
-                transferred += byte_count
-                if progress is not None:
-                    progress(transferred, total_size)
+        bounded_workers = min(
+            max_workers,
+            part_count,
+            max(1, MAX_MULTIPART_BUFFER_MEMORY // effective_part_size),
+        )
+        try:
+            with ThreadPoolExecutor(max_workers=bounded_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._upload_part,
+                        path,
+                        offset=(part_number - 1) * effective_part_size,
+                        size=min(
+                            effective_part_size,
+                            total_size - (part_number - 1) * effective_part_size,
+                        ),
+                        job_id=job_id,
+                        s3_key=s3_key,
+                        upload_id=upload_id,
+                        part_number=part_number,
+                        attempts=part_retries,
+                    ): part_number
+                    for part_number in range(1, part_count + 1)
+                }
+                for future in as_completed(futures):
+                    part, byte_count = future.result()
+                    uploaded.append(part)
+                    transferred += byte_count
+                    if progress is not None:
+                        progress(transferred, total_size)
+        except Exception:
+            try:
+                self.abort_presigned_multipart_upload(
+                    job_id=job_id, s3_key=s3_key, upload_id=upload_id
+                )
+            except Exception as abort_error:
+                warnings.warn(
+                    f"Multipart upload cleanup failed: {type(abort_error).__name__}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            raise
 
         uploaded.sort(key=lambda part: int(part["PartNumber"]))
         effective_completion_fields = dict(completion_fields or {})
@@ -1080,11 +1150,7 @@ class Kanopy:
                 if response.is_error:
                     response.read()
                     raise KanopyError.from_response(response)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open("wb") as output:
-                    for chunk in response.iter_bytes():
-                        output.write(chunk)
-                return target
+                return self._write_download_atomically(response, target)
         return self._download_url(location, target)
 
     def _download_url(self, url: str, destination: str | PathLike[str]) -> Path:
@@ -1097,11 +1163,30 @@ class Kanopy:
                     f"Export storage returned HTTP {response.status_code}",
                     status_code=response.status_code,
                 )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open("wb") as output:
+            return self._write_download_atomically(response, target)
+
+    @staticmethod
+    def _write_download_atomically(response: httpx.Response, target: Path) -> Path:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{uuid4().hex}.part")
+        written = 0
+        try:
+            with temporary.open("wb") as output:
                 for chunk in response.iter_bytes():
                     output.write(chunk)
-        return target
+                    written += len(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            raw_length = response.headers.get("Content-Length")
+            if raw_length is not None and int(raw_length) != written:
+                raise IOError(
+                    f"Incomplete download: expected {raw_length} bytes, received {written}"
+                )
+            os.replace(temporary, target)
+            return target
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
 
     def _all_inventory_items(
         self, kind: str, project_id: str, *, job_id: str | None

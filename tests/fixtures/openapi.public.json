@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "AbortMultipartRequest": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "s3_key": {
+            "title": "S3 Key",
+            "type": "string"
+          },
+          "upload_id": {
+            "title": "Upload Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "s3_key",
+          "upload_id"
+        ],
+        "title": "AbortMultipartRequest",
+        "type": "object"
+      },
       "AuditEventPage": {
         "properties": {
           "events": {
@@ -8189,6 +8212,46 @@
           }
         ],
         "summary": "Upload",
+        "tags": [
+          "upload"
+        ]
+      }
+    },
+    "/upload/abort-presigned-multipart": {
+      "post": {
+        "description": "Abort exactly the active multipart upload owned by this job.",
+        "operationId": "abort_presigned_multipart_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbortMultipartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Abort Presigned Multipart Upload",
         "tags": [
           "upload"
         ]
