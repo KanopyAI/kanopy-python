@@ -9,7 +9,6 @@ import math
 import os
 import random
 import time
-from uuid import uuid4
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -17,6 +16,7 @@ from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
 from typing import Any, BinaryIO
+from uuid import uuid4
 from xml.sax.saxutils import escape
 
 import httpx
@@ -709,7 +709,9 @@ class Kanopy:
                 self.abort_presigned_multipart_upload(
                     job_id=job_id, s3_key=s3_key, upload_id=upload_id
                 )
-            except Exception as abort_error:
+            # Cleanup is best-effort and must never mask the original part failure,
+            # including failures raised by a custom HTTP transport.
+            except Exception as abort_error:  # noqa: BLE001
                 warnings.warn(
                     f"Multipart upload cleanup failed: {type(abort_error).__name__}",
                     RuntimeWarning,
@@ -1179,7 +1181,7 @@ class Kanopy:
                 os.fsync(output.fileno())
             raw_length = response.headers.get("Content-Length")
             if raw_length is not None and int(raw_length) != written:
-                raise IOError(
+                raise OSError(
                     f"Incomplete download: expected {raw_length} bytes, received {written}"
                 )
             os.replace(temporary, target)

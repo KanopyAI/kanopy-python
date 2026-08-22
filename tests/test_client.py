@@ -142,9 +142,11 @@ def test_unsafe_mutations_are_not_retried_without_idempotency_key(monkeypatch) -
         return httpx.Response(503)
 
     monkeypatch.setattr("kanopy.client.time.sleep", lambda _seconds: None)
-    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
-        with pytest.raises(KanopyError):
-            client.create_project(name="No duplicate")
+    with (
+        Kanopy("key", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(KanopyError),
+    ):
+        client.create_project(name="No duplicate")
 
     assert attempts == 1
 
@@ -238,9 +240,11 @@ def test_incomplete_download_does_not_replace_existing_destination(tmp_path) -> 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=b"short", headers={"Content-Length": "20"})
 
-    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
-        with pytest.raises(IOError, match="Incomplete download"):
-            client.download_job_table("job-1", "trees", destination)
+    with (
+        Kanopy("key", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(OSError, match="Incomplete download"),
+    ):
+        client.download_job_table("job-1", "trees", destination)
 
     assert destination.read_bytes() == b"previous complete export"
     assert not list(tmp_path.glob("*.part"))
