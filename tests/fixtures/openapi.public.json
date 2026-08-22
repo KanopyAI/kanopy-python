@@ -1,143 +1,27 @@
 {
   "components": {
     "schemas": {
-      "ApiKeyCreate": {
+      "AbortMultipartRequest": {
         "properties": {
-          "expires_in_days": {
-            "anyOf": [
-              {
-                "maximum": 3650.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Key lifetime in days (default: 365, max: 3650)",
-            "title": "Expires In Days"
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
           },
-          "name": {
-            "description": "Human-readable label for this key",
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Name",
+          "s3_key": {
+            "title": "S3 Key",
+            "type": "string"
+          },
+          "upload_id": {
+            "title": "Upload Id",
             "type": "string"
           }
         },
         "required": [
-          "name"
+          "job_id",
+          "s3_key",
+          "upload_id"
         ],
-        "title": "ApiKeyCreate",
-        "type": "object"
-      },
-      "ApiKeyCreated": {
-        "description": "Returned only at creation \u2014 includes the raw token (shown once).",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Used At"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "token": {
-            "title": "Token",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "created_at",
-          "expires_at",
-          "last_used_at",
-          "token"
-        ],
-        "title": "ApiKeyCreated",
-        "type": "object"
-      },
-      "ApiKeyPublic": {
-        "description": "Public representation of an API key (never includes the raw token).",
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "expires_at": {
-            "format": "date-time",
-            "title": "Expires At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "last_used_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Used At"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "created_at",
-          "expires_at",
-          "last_used_at"
-        ],
-        "title": "ApiKeyPublic",
+        "title": "AbortMultipartRequest",
         "type": "object"
       },
       "AuditEventPage": {
@@ -201,6 +85,40 @@
               }
             ],
             "title": "Actor User Id"
+          },
+          "auth_method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Method"
+          },
+          "auth_token_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Token Id"
+          },
+          "auth_token_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Token Name"
           },
           "created_at": {
             "format": "date-time",
@@ -272,6 +190,9 @@
           "actor_user_id",
           "actor_email",
           "actor_is_staff",
+          "auth_token_id",
+          "auth_token_name",
+          "auth_method",
           "target_type",
           "target_id",
           "ip",
@@ -283,7 +204,7 @@
         "title": "AuditEventPublic",
         "type": "object"
       },
-      "Body_complete_presigned_multipart_upload_api_v1_upload_complete_presigned_multipart_post": {
+      "Body_complete_presigned_multipart_upload": {
         "properties": {
           "flight_latitude": {
             "anyOf": [
@@ -442,10 +363,10 @@
           "s3_key",
           "parts_json"
         ],
-        "title": "Body_complete_presigned_multipart_upload_api_v1_upload_complete_presigned_multipart_post",
+        "title": "Body_complete_presigned_multipart_upload",
         "type": "object"
       },
-      "Body_complete_presigned_upload_api_v1_upload_complete_presigned_post": {
+      "Body_complete_presigned_upload": {
         "properties": {
           "flight_latitude": {
             "anyOf": [
@@ -591,10 +512,10 @@
         "required": [
           "job_id"
         ],
-        "title": "Body_complete_presigned_upload_api_v1_upload_complete_presigned_post",
+        "title": "Body_complete_presigned_upload",
         "type": "object"
       },
-      "Body_inspect_action_video_api_v1_upload_inspect_action_video_post": {
+      "Body_inspect_action_video": {
         "properties": {
           "video": {
             "contentMediaType": "application/octet-stream",
@@ -606,10 +527,10 @@
         "required": [
           "video"
         ],
-        "title": "Body_inspect_action_video_api_v1_upload_inspect_action_video_post",
+        "title": "Body_inspect_action_video",
         "type": "object"
       },
-      "Body_inspect_flight_log_api_v1_upload_inspect_flight_log_post": {
+      "Body_inspect_flight_log": {
         "properties": {
           "metadata": {
             "contentMediaType": "application/octet-stream",
@@ -645,10 +566,10 @@
         "required": [
           "metadata"
         ],
-        "title": "Body_inspect_flight_log_api_v1_upload_inspect_flight_log_post",
+        "title": "Body_inspect_flight_log",
         "type": "object"
       },
-      "Body_upload_api_v1_upload_post": {
+      "Body_upload": {
         "properties": {
           "capture_device": {
             "anyOf": [
@@ -986,7 +907,7 @@
         "required": [
           "video"
         ],
-        "title": "Body_upload_api_v1_upload_post",
+        "title": "Body_upload",
         "type": "object"
       },
       "CaptureDevice": {
@@ -1870,565 +1791,6 @@
         "title": "JobOutputsResponse",
         "type": "object"
       },
-      "JobPublic": {
-        "description": "Public representation of a reconstruction job.\n\nOmits internal fields: task_id, input_metadata_path, veg_analysis_model,\nveg_analysis_frames_per_region, efs_expires_at, started_processing_at,\npublished_by.",
-        "properties": {
-          "capture_device": {
-            "$ref": "#/components/schemas/CaptureDevice",
-            "default": "drone"
-          },
-          "circuit_clearance_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Circuit Clearance M"
-          },
-          "circuit_count": {
-            "default": 1,
-            "title": "Circuit Count",
-            "type": "integer"
-          },
-          "circuit_width_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Circuit Width M"
-          },
-          "cleanup_cleaned_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cleanup Cleaned At"
-          },
-          "cleanup_cleaned_by_user_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cleanup Cleaned By User Id"
-          },
-          "cleanup_credited_user_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cleanup Credited User Id"
-          },
-          "cleanup_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cleanup Status"
-          },
-          "conductor_class": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Conductor Class"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "flight_latitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Flight Latitude"
-          },
-          "flight_location_title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Flight Location Title"
-          },
-          "flight_longitude": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Flight Longitude"
-          },
-          "flight_state": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Flight State"
-          },
-          "flight_state_abbr": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Flight State Abbr"
-          },
-          "has_reconstruction_video": {
-            "default": false,
-            "title": "Has Reconstruction Video",
-            "type": "boolean"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "input_video_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Input Video Path"
-          },
-          "input_video_size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Input Video Size Bytes"
-          },
-          "is_360_video": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Is 360 Video"
-          },
-          "job_folder_size_bytes": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Job Folder Size Bytes"
-          },
-          "job_length_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Job Length M"
-          },
-          "last_edit_affected_chunk_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Edit Affected Chunk Ids"
-          },
-          "last_edit_seq": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Edit Seq"
-          },
-          "line_clearance_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Line Clearance Enabled"
-          },
-          "metric_accuracy_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metric Accuracy M"
-          },
-          "metric_accuracy_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Metric Accuracy Pct"
-          },
-          "migration_completed_files": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Migration Completed Files"
-          },
-          "migration_direction": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Migration Direction"
-          },
-          "migration_error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Migration Error"
-          },
-          "migration_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Migration Status"
-          },
-          "migration_total_files": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Migration Total Files"
-          },
-          "organization_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Organization Id"
-          },
-          "output_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Path"
-          },
-          "phase_count": {
-            "default": 2,
-            "title": "Phase Count",
-            "type": "integer"
-          },
-          "pole_height_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pole Height M"
-          },
-          "progress_detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Progress Detail"
-          },
-          "progress_pct": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Progress Pct"
-          },
-          "progress_stage": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Progress Stage"
-          },
-          "project_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Id"
-          },
-          "project_uuid": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Project Uuid"
-          },
-          "published": {
-            "default": true,
-            "title": "Published",
-            "type": "boolean"
-          },
-          "published_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Published At"
-          },
-          "risk_refreshed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Risk Refreshed At"
-          },
-          "s3_bucket": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "S3 Bucket"
-          },
-          "s3_prefix": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "S3 Prefix"
-          },
-          "status": {
-            "$ref": "#/components/schemas/JobStatus"
-          },
-          "storage_backend": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Storage Backend"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "title": "Updated At",
-            "type": "string"
-          },
-          "use_pole_scale_reference": {
-            "default": false,
-            "title": "Use Pole Scale Reference",
-            "type": "boolean"
-          },
-          "veg_analysis_effort": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Veg Analysis Effort"
-          },
-          "veg_analysis_enabled": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Veg Analysis Enabled"
-          },
-          "veg_analysis_providers": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Veg Analysis Providers"
-          },
-          "voltage_class": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Voltage Class"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "status",
-          "created_at",
-          "updated_at"
-        ],
-        "title": "JobPublic",
-        "type": "object"
-      },
       "JobStatus": {
         "description": "Lifecycle status for a reconstruction job.",
         "enum": [
@@ -2436,6 +1798,7 @@
           "UPLOADING",
           "PENDING",
           "LOCALIZING",
+          "AWAITING_POLE_HEIGHT",
           "PROCESSING",
           "COMPLETED",
           "FAILED",
@@ -2651,6 +2014,11 @@
             "title": "Id",
             "type": "string"
           },
+          "is_demo": {
+            "default": false,
+            "title": "Is Demo",
+            "type": "boolean"
+          },
           "organization_id": {
             "title": "Organization Id",
             "type": "string"
@@ -2692,6 +2060,21 @@
           "role"
         ],
         "title": "OrganizationMemberUpdate",
+        "type": "object"
+      },
+      "PoleHeightResumeRequest": {
+        "description": "Reference scale used to resume raw footage that has no GPS telemetry.",
+        "properties": {
+          "pole_height_m": {
+            "minimum": 0.1,
+            "title": "Pole Height M",
+            "type": "number"
+          }
+        },
+        "required": [
+          "pole_height_m"
+        ],
+        "title": "PoleHeightResumeRequest",
         "type": "object"
       },
       "PoleListResponse": {
@@ -2846,17 +2229,6 @@
               }
             ],
             "title": "Height M"
-          },
-          "instance_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instance Path"
           },
           "job_id": {
             "title": "Job Id",
@@ -3211,13 +2583,6 @@
             "title": "Observations",
             "type": "array"
           },
-          "ply_paths_by_job_id": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Ply Paths By Job Id",
-            "type": "object"
-          },
           "pole_id": {
             "title": "Pole Id",
             "type": "string"
@@ -3232,6 +2597,20 @@
               }
             ],
             "title": "Pole Subclass Label"
+          },
+          "pole_subclass_label_sources_by_job_id": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Pole Subclass Label Sources By Job Id",
+            "type": "object"
+          },
+          "pole_subclass_labels_by_job_id": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Pole Subclass Labels By Job Id",
+            "type": "object"
           },
           "project_id": {
             "anyOf": [
@@ -3859,6 +3238,68 @@
             ],
             "title": "Organization Id"
           },
+          "policy_applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Applied At"
+          },
+          "policy_recompute_pending": {
+            "default": false,
+            "title": "Policy Recompute Pending",
+            "type": "boolean"
+          },
+          "pruning_margin_ft": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Margin Ft"
+          },
+          "pruning_removal_fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Removal Fraction"
+          },
+          "removal_risk_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removal Risk Threshold"
+          },
+          "risk_constants": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Constants"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -3911,6 +3352,57 @@
               }
             ],
             "title": "Name"
+          },
+          "pruning_margin_ft": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Margin Ft"
+          },
+          "pruning_removal_fraction": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Removal Fraction"
+          },
+          "removal_risk_threshold": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Removal Risk Threshold"
+          },
+          "risk_constants": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Constants"
           }
         },
         "title": "ProjectUpdate",
@@ -4572,17 +4064,6 @@
             "title": "Frames",
             "type": "array"
           },
-          "instance_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instance Path"
-          },
           "job_id": {
             "title": "Job Id",
             "type": "string"
@@ -4726,6 +4207,29 @@
               }
             ],
             "title": "Point Instance Id"
+          },
+          "pruning_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Action"
+          },
+          "pruning_curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Curve"
           },
           "pruning_fraction": {
             "anyOf": [
@@ -4888,6 +4392,18 @@
               }
             ],
             "title": "Center World"
+          },
+          "condition_summary": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition Summary"
           },
           "current_band": {
             "anyOf": [
@@ -5082,13 +4598,6 @@
             "title": "Observations",
             "type": "array"
           },
-          "ply_paths_by_job_id": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Ply Paths By Job Id",
-            "type": "object"
-          },
           "project_id": {
             "anyOf": [
               {
@@ -5099,6 +4608,29 @@
               }
             ],
             "title": "Project Id"
+          },
+          "pruning_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Action"
+          },
+          "pruning_curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Curve"
           },
           "pruning_fraction": {
             "anyOf": [
@@ -5121,6 +4653,52 @@
               }
             ],
             "title": "Pruning Hull Volume M3"
+          },
+          "pruning_recommendation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Recommendation"
+          },
+          "pruning_recommendation_breakdown": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Recommendation Breakdown"
+          },
+          "pruning_recommended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Recommended At"
+          },
+          "pruning_recommended_volume_m3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Recommended Volume M3"
           },
           "risk_breakdown": {
             "anyOf": [
@@ -5336,7 +4914,7 @@
       "WebhookCreate": {
         "properties": {
           "events": {
-            "description": "Events to subscribe to. Empty list = all events. Valid values: ['job.canceled', 'job.completed', 'job.failed', 'job.processing']",
+            "description": "Events to subscribe to. For customer organizations, empty means all customer events (['job.published', 'job.uploaded']). Internal lifecycle events remain available only to Kanopy staff. Valid values: ['cleanup.completed', 'job.canceled', 'job.cleaned', 'job.completed', 'job.failed', 'job.processing', 'job.published', 'job.uploaded']",
             "items": {
               "type": "string"
             },
@@ -5385,7 +4963,7 @@
         "type": "object"
       },
       "WebhookCreated": {
-        "description": "Returned only at creation \u2014 includes the signing secret (shown once).",
+        "description": "Returned only at creation \u2014 includes the signing secret (shown once).\n\n``secret`` is null when an idempotency key replays an existing\nregistration: the secret is only ever revealed by the call that minted it,\nso a replayed key cannot be used to re-read it later.",
         "properties": {
           "consecutive_failures": {
             "title": "Consecutive Failures",
@@ -5394,6 +4972,10 @@
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "destination": {
+            "title": "Destination",
             "type": "string"
           },
           "events": {
@@ -5448,8 +5030,15 @@
             "title": "Name"
           },
           "secret": {
-            "title": "Secret",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
           },
           "updated_at": {
             "format": "date-time",
@@ -5465,14 +5054,14 @@
           "id",
           "name",
           "url",
+          "destination",
           "events",
           "is_active",
           "consecutive_failures",
           "last_failure_at",
           "last_success_at",
           "created_at",
-          "updated_at",
-          "secret"
+          "updated_at"
         ],
         "title": "WebhookCreated",
         "type": "object"
@@ -5540,6 +5129,7 @@
                 "type": "null"
               }
             ],
+            "description": "Deprecated; receiver response bodies are never retained or returned",
             "title": "Response Body"
           },
           "response_status": {
@@ -5571,7 +5161,6 @@
           "job_id",
           "attempt",
           "response_status",
-          "response_body",
           "error",
           "delivered_at",
           "success"
@@ -5588,6 +5177,10 @@
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "destination": {
+            "title": "Destination",
             "type": "string"
           },
           "events": {
@@ -5655,6 +5248,7 @@
           "id",
           "name",
           "url",
+          "destination",
           "events",
           "is_active",
           "consecutive_failures",
@@ -5664,6 +5258,31 @@
           "updated_at"
         ],
         "title": "WebhookPublic",
+        "type": "object"
+      },
+      "WebhookSecretRotated": {
+        "properties": {
+          "previous_secret_valid_until": {
+            "format": "date-time",
+            "title": "Previous Secret Valid Until",
+            "type": "string"
+          },
+          "secret": {
+            "title": "Secret",
+            "type": "string"
+          },
+          "webhook_id": {
+            "format": "uuid",
+            "title": "Webhook Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhook_id",
+          "secret",
+          "previous_secret_valid_until"
+        ],
+        "title": "WebhookSecretRotated",
         "type": "object"
       },
       "WebhookUpdate": {
@@ -6037,124 +5656,6 @@
         ]
       }
     },
-    "/auth/api-keys": {
-      "get": {
-        "description": "Returns all active API keys for the authenticated user. Tokens are never included.",
-        "operationId": "list_api_keys",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ApiKeyPublic"
-                  },
-                  "title": "Response List Api Keys Api V1 Auth Api Keys Get",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "List API keys",
-        "tags": [
-          "api-keys"
-        ]
-      },
-      "post": {
-        "description": "Creates a long-lived API key. The raw token is returned **once** at creation and cannot be retrieved again. Store it securely. Use it as a bearer token: `Authorization: Bearer <token>`.",
-        "operationId": "create_api_key",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApiKeyCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiKeyCreated"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Create an API key",
-        "tags": [
-          "api-keys"
-        ]
-      }
-    },
-    "/auth/api-keys/{key_id}": {
-      "delete": {
-        "description": "Permanently revokes an API key. Any requests using this key will immediately fail.",
-        "operationId": "revoke_api_key",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "key_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Key Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Revoke an API key",
-        "tags": [
-          "api-keys"
-        ]
-      }
-    },
     "/auth/me": {
       "get": {
         "operationId": "me",
@@ -6163,7 +5664,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "description": "Integration identity returned by /auth/me for API-key callers.\n\nDeliberately excludes the session payload (capabilities, roles,\npreferences, MFA state) \u2014 that is web-app UI state, not part of the\ncustomer API contract, and it exposes internal authorization vocabulary.",
+                  "description": "Integration identity returned by /auth/me for API-key callers.",
                   "properties": {
                     "company_name": {
                       "anyOf": [
@@ -6675,7 +6176,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobPublic"
+                  "$ref": "#/components/schemas/JobApiPublic"
                 }
               }
             },
@@ -6835,7 +6336,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobPublic"
+                  "$ref": "#/components/schemas/JobApiPublic"
                 }
               }
             },
@@ -6865,7 +6366,7 @@
     },
     "/jobs/{job_id}/cancel": {
       "post": {
-        "description": "Cancel a job that is not in a terminal state.\nSupports canceling jobs in COMPRESSING, UPLOADING, PENDING, or PROCESSING status.\nAny authenticated user can cancel their own jobs.\nIf the Celery task id is known, send a revoke with terminate to stop execution.",
+        "description": "Cancel a job that is not in a terminal state.\nSupports canceling jobs in COMPRESSING, UPLOADING, PENDING, or PROCESSING status.\nAny authenticated user can cancel their own jobs.",
         "operationId": "cancel_job",
         "parameters": [
           {
@@ -6884,7 +6385,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobPublic"
+                  "$ref": "#/components/schemas/JobApiPublic"
                 }
               }
             },
@@ -6934,7 +6435,7 @@
             }
           },
           {
-            "description": "Comma-separated artifact categories to include. Omit for everything. point_cloud = local-frame PLY point clouds with measurement scalars baked in, plus CRS-tagged LAS/PLY copies and a registration report when the job can be georeferenced; camera = per-frame camera poses in the point clouds' local frame; analytics = trees.csv, poles.csv and spans.csv.",
+            "description": "Comma-separated artifact categories to include. Omit for everything. point_cloud = local-frame PLY point clouds with measurement scalars baked in and fitted wires added to reconstruction chunks, plus CRS-tagged LAS/PLY copies of reconstruction and segmented clouds and a registration report when the job can be georeferenced; camera = per-frame camera poses in the point clouds' local frame; analytics = trees.csv, poles.csv and spans.csv.",
             "in": "query",
             "name": "include",
             "required": false,
@@ -6947,7 +6448,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Comma-separated artifact categories to include. Omit for everything. point_cloud = local-frame PLY point clouds with measurement scalars baked in, plus CRS-tagged LAS/PLY copies and a registration report when the job can be georeferenced; camera = per-frame camera poses in the point clouds' local frame; analytics = trees.csv, poles.csv and spans.csv.",
+              "description": "Comma-separated artifact categories to include. Omit for everything. point_cloud = local-frame PLY point clouds with measurement scalars baked in and fitted wires added to reconstruction chunks, plus CRS-tagged LAS/PLY copies of reconstruction and segmented clouds and a registration report when the job can be georeferenced; camera = per-frame camera poses in the point clouds' local frame; analytics = trees.csv, poles.csv and spans.csv.",
               "title": "Include"
             }
           },
@@ -7004,7 +6505,7 @@
     },
     "/jobs/{job_id}/outputs": {
       "get": {
-        "description": "Discover what a job produced without hard-coding zip layouts. Each entry carries a stable `id` you can pass to GET /jobs/{job_id}/outputs/{output_id} to download that output on its own.\n\nReturns an empty list \u2014 not a 404 \u2014 for a job that has not produced anything yet, so it is safe to poll after a `job.completed` webhook.\n\nGeoreferenced point clouds are reprojected at packaging time and are not listed individually; fetch them via GET /jobs/{job_id}/folder-zip with `include=point_cloud` and `point_cloud_epsg`.",
+        "description": "Discover what a job produced without hard-coding zip layouts. Each entry carries a stable `id` you can pass to GET /jobs/{job_id}/outputs/{output_id} to download that output on its own.\n\nReturns an empty list \u2014 not a 404 \u2014 for a job that has not produced anything yet. Customer integrations should request outputs after a `job.published` webhook.\n\nGeoreferenced point clouds are reprojected at packaging time and are not listed individually; fetch them via GET /jobs/{job_id}/folder-zip with `include=point_cloud` and `point_cloud_epsg`.",
         "operationId": "list_job_output_catalog",
         "parameters": [
           {
@@ -7115,6 +6616,65 @@
           }
         ],
         "summary": "Download one job output",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/pole-height": {
+      "post": {
+        "description": "Resume server-side preparation for raw footage with no GPS telemetry.",
+        "operationId": "resume_job_with_pole_height",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PoleHeightResumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobApiPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume Job With Pole Height",
         "tags": [
           "jobs"
         ]
@@ -7242,22 +6802,6 @@
               "description": "Include the full clearance-standards configuration on each project. Omitted by default; also available on GET /projects/{id}.",
               "title": "Include Clearance Standards",
               "type": "boolean"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
             }
           }
         ],
@@ -7392,22 +6936,6 @@
             "schema": {
               "title": "Project Id",
               "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
             }
           }
         ],
@@ -7564,8 +7092,8 @@
             }
           },
           {
-            "in": "header",
-            "name": "x-impersonate-user",
+            "in": "query",
+            "name": "include",
             "required": false,
             "schema": {
               "anyOf": [
@@ -7576,7 +7104,23 @@
                   "type": "null"
                 }
               ],
-              "title": "X-Impersonate-User"
+              "title": "Include"
+            }
+          },
+          {
+            "in": "query",
+            "name": "point_cloud_epsg",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Cloud Epsg"
             }
           }
         ],
@@ -7637,22 +7181,6 @@
               "title": "Export Id",
               "type": "string"
             }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
-            }
           }
         ],
         "responses": {
@@ -7704,8 +7232,8 @@
             }
           },
           {
-            "in": "header",
-            "name": "x-impersonate-user",
+            "in": "query",
+            "name": "include",
             "required": false,
             "schema": {
               "anyOf": [
@@ -7716,7 +7244,24 @@
                   "type": "null"
                 }
               ],
-              "title": "X-Impersonate-User"
+              "title": "Include"
+            }
+          },
+          {
+            "in": "query",
+            "name": "point_cloud_epsg",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Point Cloud Epsg"
             }
           }
         ],
@@ -7787,22 +7332,6 @@
               "title": "Limit",
               "type": "integer"
             }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
-            }
           }
         ],
         "responses": {
@@ -7865,22 +7394,6 @@
               },
               "title": "Job Ids",
               "type": "array"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
             }
           }
         ],
@@ -8102,22 +7615,6 @@
               "title": "Skip Count",
               "type": "boolean"
             }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
-            }
           }
         ],
         "responses": {
@@ -8236,22 +7733,6 @@
               "description": "Skip the count query for later pages",
               "title": "Skip Count",
               "type": "boolean"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
             }
           }
         ],
@@ -8467,22 +7948,6 @@
               "title": "Skip Count",
               "type": "boolean"
             }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
-            }
           }
         ],
         "responses": {
@@ -8619,22 +8084,6 @@
               "title": "Include Camera Poses",
               "type": "boolean"
             }
-          },
-          {
-            "in": "header",
-            "name": "x-impersonate-user",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Impersonate-User"
-            }
           }
         ],
         "responses": {
@@ -8727,7 +8176,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_api_v1_upload_post"
+                "$ref": "#/components/schemas/Body_upload"
               }
             }
           },
@@ -8768,15 +8217,55 @@
         ]
       }
     },
+    "/upload/abort-presigned-multipart": {
+      "post": {
+        "description": "Abort exactly the active multipart upload owned by this job.",
+        "operationId": "abort_presigned_multipart_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbortMultipartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Abort Presigned Multipart Upload",
+        "tags": [
+          "upload"
+        ]
+      }
+    },
     "/upload/complete-presigned": {
       "post": {
-        "description": "Finalize a presigned upload and dispatch its processing path.\n\nMetadata files (flight logs, GPS tracks) are still uploaded via this endpoint\nsince they are small enough for multipart form. Raw uploads return after\nqueueing server preparation; client-transcoded uploads retain the legacy\nsynchronous completion path during the staged rollout.",
+        "description": "Finalize a presigned upload and dispatch its processing path.\n\nMetadata files (flight logs, GPS tracks) are still uploaded via this endpoint\nsince they are small enough for multipart form. Raw uploads return as soon as\nserver-side preparation is queued; transcoded uploads complete synchronously.",
         "operationId": "complete_presigned_upload",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_complete_presigned_upload_api_v1_upload_complete_presigned_post"
+                "$ref": "#/components/schemas/Body_complete_presigned_upload"
               }
             }
           },
@@ -8825,7 +8314,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_complete_presigned_multipart_upload_api_v1_upload_complete_presigned_multipart_post"
+                "$ref": "#/components/schemas/Body_complete_presigned_multipart_upload"
               }
             }
           },
@@ -8868,7 +8357,7 @@
     },
     "/upload/init-presigned": {
       "post": {
-        "description": "Prepare a job and return a presigned S3 URL for direct video upload.\n\nReuses an existing pre-created job when ``job_id`` is provided so the\nfrontend queue and the upload pipeline operate on the same job record.\nRequires S3 to be configured (``S3_BUCKET_NAME`` set). Returns 501 if not.",
+        "description": "Prepare a job and return a presigned S3 URL for direct video upload.\n\nReuses an existing pre-created job when ``job_id`` is provided so the\nfrontend queue and the upload pipeline operate on the same job record.\nReturns 501 when direct-to-storage upload is not available in this environment.",
         "operationId": "init_presigned_upload",
         "requestBody": {
           "content": {
@@ -8964,13 +8453,14 @@
     },
     "/upload/inspect-action-video": {
       "post": {
-        "description": "Inspect an action-camera video to extract GPS coordinates for gating uploads.\n\nAlso extracts the full GPS track for use in reconstruction, since the frontend's\ngopro-telemetry library has issues with GPS9 format from Hero 9+ cameras.",
+        "deprecated": true,
+        "description": "Deprecated: action-cam GPS extraction happens during server upload prep on\nthe raw object (worker/server_upload_prep.py); this endpoint requires a\nduplicate full upload and parses the file twice. No frontend callers remain.\n\nInspect an action-camera video to extract GPS coordinates for gating uploads.",
         "operationId": "inspect_action_video",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_inspect_action_video_api_v1_upload_inspect_action_video_post"
+                "$ref": "#/components/schemas/Body_inspect_action_video"
               }
             }
           },
@@ -9017,7 +8507,7 @@
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_inspect_flight_log_api_v1_upload_inspect_flight_log_post"
+                "$ref": "#/components/schemas/Body_inspect_flight_log"
               }
             }
           },
@@ -9429,6 +8919,54 @@
           }
         ],
         "summary": "List recent deliveries",
+        "tags": [
+          "webhooks"
+        ]
+      }
+    },
+    "/webhooks/{webhook_id}/rotate-secret": {
+      "post": {
+        "operationId": "rotate_webhook_secret",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "webhook_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Webhook Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookSecretRotated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rotate a webhook signing secret",
         "tags": [
           "webhooks"
         ]

@@ -116,6 +116,41 @@ def test_api_error_exposes_kanopy_error_fields() -> None:
     assert error.request_id == "request-123"
 
 
+def test_idempotent_reads_retry_transient_failures(monkeypatch) -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            return httpx.Response(503)
+        return httpx.Response(200, json={"id": "project-1"})
+
+    monkeypatch.setattr("kanopy.client.time.sleep", lambda _seconds: None)
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        assert client.get_project("project-1")["id"] == "project-1"
+
+    assert attempts == 3
+
+
+def test_unsafe_mutations_are_not_retried_without_idempotency_key(monkeypatch) -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(503)
+
+    monkeypatch.setattr("kanopy.client.time.sleep", lambda _seconds: None)
+    with (
+        Kanopy("key", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(KanopyError),
+    ):
+        client.create_project(name="No duplicate")
+
+    assert attempts == 1
+
+
 def test_upload_queues_processing_without_manual_submit() -> None:
     requests: list[httpx.Request] = []
 
@@ -196,6 +231,23 @@ def test_download_streams_to_destination(tmp_path) -> None:
 
     assert result == destination
     assert destination.read_bytes() == b"tree_id,risk\n1,high\n"
+
+
+def test_incomplete_download_does_not_replace_existing_destination(tmp_path) -> None:
+    destination = tmp_path / "trees.csv"
+    destination.write_bytes(b"previous complete export")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"short", headers={"Content-Length": "20"})
+
+    with (
+        Kanopy("key", transport=httpx.MockTransport(handler)) as client,
+        pytest.raises(OSError, match="Incomplete download"),
+    ):
+        client.download_job_table("job-1", "trees", destination)
+
+    assert destination.read_bytes() == b"previous complete export"
+    assert not list(tmp_path.glob("*.part"))
 
 
 def test_download_project_export_waits_then_fetches_presigned_url(tmp_path) -> None:
@@ -537,7 +589,10 @@ def test_large_upload_reports_part_failure(tmp_path) -> None:
     video = tmp_path / "flight.mp4"
     video.write_bytes(b"video")
 
+    api_paths: list[str] = []
+
     def api_handler(request: httpx.Request) -> httpx.Response:
+        api_paths.append(request.url.path)
         if request.url.path.endswith("/init-presigned-multipart"):
             return httpx.Response(
                 201,
@@ -548,6 +603,8 @@ def test_large_upload_reports_part_failure(tmp_path) -> None:
                     "content_type": "video/mp4",
                 },
             )
+        if request.url.path.endswith("/abort-presigned-multipart"):
+            return httpx.Response(204)
         return httpx.Response(
             200,
             json={"url": "https://storage.test/part", "part_number": 1},
@@ -570,6 +627,7 @@ def test_large_upload_reports_part_failure(tmp_path) -> None:
 
     assert caught.value.part_number == 1
     assert caught.value.status_code == 500
+    assert api_paths[-1].endswith("/abort-presigned-multipart")
 
 
 def test_list_job_outputs_returns_the_outputs_array() -> None:

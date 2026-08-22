@@ -78,7 +78,15 @@ upload = kanopy.upload_large(
 
 The default uses 64 MiB parts, four parallel workers, and three attempts per
 part. `part_size`, `max_workers`, and `part_retries` are configurable. Memory
-use is approximately `part_size * max_workers` while transfers are active.
+is bounded to 512 MiB across workers and each buffered part is capped at 256
+MiB. Failed transfers explicitly abort their storage upload instead of waiting
+for server cleanup.
+
+Idempotent reads automatically retry transient network failures and HTTP
+408/425/429/5xx responses with capped exponential backoff and jitter. Mutating
+requests are never retried unless they carry an idempotency key. Downloads are
+written to a temporary file, length-checked when available, and atomically
+renamed so a partial response cannot replace a valid export.
 
 `upload_large` sends the original source bytes without client-side compression.
 For declared `drone` and `action_cam` uploads it requests background server

@@ -6,28 +6,40 @@ import csv
 import io
 import json
 import math
+import os
+import random
 import time
+import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
 from typing import Any, BinaryIO
-from urllib.parse import urlparse
+from uuid import uuid4
 from xml.sax.saxutils import escape
 
 import httpx
 from typing_extensions import Self
 
+from ._version import __version__
 from .errors import KanopyError, KanopyUploadError
 from .models import Page
 
 DEFAULT_BASE_URL = "https://app.kanopy-ai.com/api/v1"
+# Bounded, opt-out retry on 429: the platform sends Retry-After on every
+# throttle response; honoring it is part of the API contract.
+MAX_RATE_LIMIT_RETRIES = 2
+MAX_RETRY_AFTER_SECONDS = 120.0
 DEFAULT_MULTIPART_PART_SIZE = 64 * 1024 * 1024
 MIN_MULTIPART_PART_SIZE = 5 * 1024 * 1024
 MAX_MULTIPART_PARTS = 10_000
 MAX_MULTIPART_PART_SIZE = 5 * 1024 * 1024 * 1024
 MAX_MULTIPART_OBJECT_SIZE = 5 * 1024 * 1024 * 1024 * 1024
+MAX_BUFFERED_PART_SIZE = 256 * 1024 * 1024
+MAX_MULTIPART_BUFFER_MEMORY = 512 * 1024 * 1024
+RETRYABLE_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
+RETRYABLE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 JsonObject = dict[str, Any]
 ProgressCallback = Callable[[int, int], None]
 VALID_CAPTURE_DEVICES = frozenset({"drone", "action_cam", "phone"})
@@ -72,6 +84,11 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
         "post",
         "/upload/complete-presigned-multipart",
         "complete_presigned_multipart_upload",
+    ),
+    "abort_presigned_multipart_upload": (
+        "post",
+        "/upload/abort-presigned-multipart",
+        "abort_presigned_multipart_upload",
     ),
     "list_project_trees": ("get", "/projects/{project_id}/trees", "list_project_trees"),
     "get_project_tree": (
@@ -153,7 +170,7 @@ class Kanopy:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
-                "User-Agent": "kanopy-ai-python/0.2.0",
+                "User-Agent": f"kanopy-ai-python/{__version__}",
             },
         )
         self._upload_client = httpx.Client(
@@ -173,10 +190,48 @@ class Kanopy:
         self._upload_client.close()
 
     def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
-        response = self._client.request(method, path.lstrip("/"), **kwargs)
-        if response.is_error:
-            raise KanopyError.from_response(response)
-        return response
+        normalized_method = method.upper()
+        headers = kwargs.get("headers") or {}
+        retryable = normalized_method in RETRYABLE_METHODS or any(
+            str(name).lower() == "idempotency-key" for name in headers
+        )
+        for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+            try:
+                response = self._client.request(method, path.lstrip("/"), **kwargs)
+            except httpx.TransportError:
+                if not retryable or attempt >= MAX_RATE_LIMIT_RETRIES:
+                    raise
+                time.sleep(self._backoff_seconds(attempt))
+                continue
+            if (
+                retryable
+                and response.status_code in RETRYABLE_STATUS_CODES
+                and attempt < MAX_RATE_LIMIT_RETRIES
+            ):
+                time.sleep(self._retry_after_seconds(response, attempt))
+                continue
+            if response.is_error:
+                raise KanopyError.from_response(response)
+            return response
+        raise KanopyError.from_response(response)
+
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response, attempt: int) -> float:
+        """Honor the server's Retry-After, falling back to capped backoff."""
+        raw = response.headers.get("Retry-After")
+        try:
+            seconds = (
+                float(raw) if raw is not None else Kanopy._backoff_seconds(attempt)
+            )
+        except ValueError:
+            seconds = Kanopy._backoff_seconds(attempt)
+        return max(0.0, min(seconds, MAX_RETRY_AFTER_SECONDS))
+
+    @staticmethod
+    def _backoff_seconds(attempt: int) -> float:
+        return min(
+            MAX_RETRY_AFTER_SECONDS, (1.0 * 2**attempt) + random.uniform(0.0, 0.5)
+        )
 
     def _json(self, method: str, path: str, **kwargs: Any) -> Any:
         response = self._request(method, path, **kwargs)
@@ -523,6 +578,15 @@ class Kanopy:
                 )
             )
 
+    def abort_presigned_multipart_upload(
+        self, *, job_id: str, s3_key: str, upload_id: str
+    ) -> None:
+        self._json(
+            "POST",
+            "/upload/abort-presigned-multipart",
+            json={"job_id": job_id, "s3_key": s3_key, "upload_id": upload_id},
+        )
+
     def upload_multipart(
         self,
         video: str | PathLike[str],
@@ -576,6 +640,10 @@ class Kanopy:
             )
         if part_size > MAX_MULTIPART_PART_SIZE:
             raise ValueError("part_size must not exceed 5 GiB")
+        if part_size > MAX_BUFFERED_PART_SIZE:
+            raise ValueError(
+                "part_size must not exceed 256 MiB in the buffered uploader"
+            )
         if max_workers < 1 or max_workers > 32:
             raise ValueError("max_workers must be in the range 1..32")
         if part_retries < 1:
@@ -583,6 +651,10 @@ class Kanopy:
 
         required_part_size = math.ceil(total_size / MAX_MULTIPART_PARTS)
         effective_part_size = max(part_size, required_part_size)
+        if effective_part_size > MAX_BUFFERED_PART_SIZE:
+            raise ValueError(
+                "video requires multipart parts larger than the SDK's 256 MiB memory bound"
+            )
         part_count = math.ceil(total_size / effective_part_size)
 
         init_options = dict(job_options)
@@ -602,30 +674,50 @@ class Kanopy:
 
         uploaded: list[dict[str, Any]] = []
         transferred = 0
-        with ThreadPoolExecutor(max_workers=min(max_workers, part_count)) as executor:
-            futures = {
-                executor.submit(
-                    self._upload_part,
-                    path,
-                    offset=(part_number - 1) * effective_part_size,
-                    size=min(
-                        effective_part_size,
-                        total_size - (part_number - 1) * effective_part_size,
-                    ),
-                    job_id=job_id,
-                    s3_key=s3_key,
-                    upload_id=upload_id,
-                    part_number=part_number,
-                    attempts=part_retries,
-                ): part_number
-                for part_number in range(1, part_count + 1)
-            }
-            for future in as_completed(futures):
-                part, byte_count = future.result()
-                uploaded.append(part)
-                transferred += byte_count
-                if progress is not None:
-                    progress(transferred, total_size)
+        bounded_workers = min(
+            max_workers,
+            part_count,
+            max(1, MAX_MULTIPART_BUFFER_MEMORY // effective_part_size),
+        )
+        try:
+            with ThreadPoolExecutor(max_workers=bounded_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._upload_part,
+                        path,
+                        offset=(part_number - 1) * effective_part_size,
+                        size=min(
+                            effective_part_size,
+                            total_size - (part_number - 1) * effective_part_size,
+                        ),
+                        job_id=job_id,
+                        s3_key=s3_key,
+                        upload_id=upload_id,
+                        part_number=part_number,
+                        attempts=part_retries,
+                    ): part_number
+                    for part_number in range(1, part_count + 1)
+                }
+                for future in as_completed(futures):
+                    part, byte_count = future.result()
+                    uploaded.append(part)
+                    transferred += byte_count
+                    if progress is not None:
+                        progress(transferred, total_size)
+        except Exception:
+            try:
+                self.abort_presigned_multipart_upload(
+                    job_id=job_id, s3_key=s3_key, upload_id=upload_id
+                )
+            # Cleanup is best-effort and must never mask the original part failure,
+            # including failures raised by a custom HTTP transport.
+            except Exception as abort_error:  # noqa: BLE001
+                warnings.warn(
+                    f"Multipart upload cleanup failed: {type(abort_error).__name__}",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            raise
 
         uploaded.sort(key=lambda part: int(part["PartNumber"]))
         effective_completion_fields = dict(completion_fields or {})
@@ -1060,11 +1152,7 @@ class Kanopy:
                 if response.is_error:
                     response.read()
                     raise KanopyError.from_response(response)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open("wb") as output:
-                    for chunk in response.iter_bytes():
-                        output.write(chunk)
-                return target
+                return self._write_download_atomically(response, target)
         return self._download_url(location, target)
 
     def _download_url(self, url: str, destination: str | PathLike[str]) -> Path:
@@ -1077,11 +1165,30 @@ class Kanopy:
                     f"Export storage returned HTTP {response.status_code}",
                     status_code=response.status_code,
                 )
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with target.open("wb") as output:
+            return self._write_download_atomically(response, target)
+
+    @staticmethod
+    def _write_download_atomically(response: httpx.Response, target: Path) -> Path:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_name(f".{target.name}.{uuid4().hex}.part")
+        written = 0
+        try:
+            with temporary.open("wb") as output:
                 for chunk in response.iter_bytes():
                     output.write(chunk)
-        return target
+                    written += len(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            raw_length = response.headers.get("Content-Length")
+            if raw_length is not None and int(raw_length) != written:
+                raise OSError(
+                    f"Incomplete download: expected {raw_length} bytes, received {written}"
+                )
+            os.replace(temporary, target)
+            return target
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
 
     def _all_inventory_items(
         self, kind: str, project_id: str, *, job_id: str | None
@@ -1360,14 +1467,31 @@ class Kanopy:
         return str(value)
 
     def _fetch_report_asset(self, url: str) -> bytes | None:
+        """Fetch report imagery WITHOUT ever attaching the API key.
+
+        Asset URLs come from server payloads (frame image paths). They are
+        expected to be presigned or otherwise publicly fetchable; the paths
+        are not part of the integration contract, so sending the customer's
+        credential to whatever string the payload contains is never correct —
+        neither same-origin (out-of-contract, rejected in block mode) nor
+        cross-origin (credential replay to a third party).
+        """
         try:
-            parsed = urlparse(url)
-            api_origin = urlparse(str(self._client.base_url))
-            is_presigned = "x-amz-signature=" in url.lower()
-            if is_presigned or (parsed.netloc and parsed.netloc != api_origin.netloc):
-                response = self._upload_client.get(url)
-            else:
-                response = self._client.get(url)
-            return response.content if response.is_success else None
+            # Resolve relative paths against the API origin so the request is
+            # well-formed — still on the credential-free client.
+            resolved = str(httpx.URL(str(self._client.base_url)).join(url))
+            response = self._upload_client.get(resolved, follow_redirects=True)
+            if not response.is_success:
+                warnings.warn(
+                    f"Report image could not be fetched (HTTP {response.status_code}); "
+                    "the generated report will omit it.",
+                    stacklevel=2,
+                )
+                return None
+            return response.content
         except httpx.HTTPError:
+            warnings.warn(
+                "Report image could not be fetched; the generated report will omit it.",
+                stacklevel=2,
+            )
             return None
