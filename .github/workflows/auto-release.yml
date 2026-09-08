@@ -1,0 +1,62 @@
+name: Auto-tag SDK release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: auto-tag-sdk-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag-and-dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Find a release version
+        id: version
+        shell: bash
+        run: |
+          python scripts/check_version.py
+          version="$(python -c 'import runpy; print(runpy.run_path("src/kanopy/_version.py")["__version__"])')"
+          tag="v${version}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          if git show-ref --verify --quiet "refs/tags/${tag}"; then
+            if ! git diff --quiet "${tag}..HEAD" -- \
+              src setup.cfg pyproject.toml MANIFEST.in README.md LICENSE NOTICE; then
+              echo "::error::Release-relevant files changed, but ${tag} already exists. Bump src/kanopy/_version.py."
+              exit 1
+            fi
+            echo "No release-relevant files changed since ${tag}; nothing to publish."
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Version ${version} will be released as ${tag}."
+            echo "publish=true" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Create release tag
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${RELEASE_TAG}" \
+            -f sha="${GITHUB_SHA}"
+      - name: Dispatch trusted release workflow
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: gh workflow run release.yml --repo "${GITHUB_REPOSITORY}" --ref "${RELEASE_TAG}"
