@@ -4871,6 +4871,49 @@
         "title": "TreePublic",
         "type": "object"
       },
+      "UploadHeartbeatRequest": {
+        "properties": {
+          "job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_ids"
+        ],
+        "title": "UploadHeartbeatRequest",
+        "type": "object"
+      },
+      "UploadHeartbeatResponse": {
+        "properties": {
+          "missing": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "refreshed": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Refreshed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "refreshed",
+          "missing"
+        ],
+        "title": "UploadHeartbeatResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -6199,6 +6242,53 @@
           }
         ],
         "summary": "Create Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/upload-heartbeat": {
+      "post": {
+        "description": "Keep reserved-but-not-yet-started uploads from expiring.\n\nA job created ahead of its upload is held for 30 minutes; if no video data\nhas arrived by then it is treated as abandoned and deleted. That is the\nright default for a closed browser tab, but it also expires the tail of any\nbatch that reserves its jobs up front and uploads them one at a time.\n\nCall this periodically \u2014 every few minutes \u2014 with the jobs still waiting to\nupload, and their hold is renewed. Jobs whose upload has already begun are\nunaffected and need no heartbeat.\n\n``refreshed`` lists the jobs whose hold was renewed. ``missing`` lists ids\nthat no longer exist: already expired, deleted, or not yours. Those cannot\nbe revived, so treat them as failed and re-create the job to retry.",
+        "operationId": "upload_heartbeat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Heartbeat",
         "tags": [
           "jobs"
         ]

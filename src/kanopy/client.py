@@ -69,6 +69,7 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
     "update_job": ("patch", "/jobs/{job_id}", "update_job"),
     "delete_job": ("delete", "/jobs/{job_id}", "delete_job"),
     "cancel_job": ("post", "/jobs/{job_id}/cancel", "cancel_job"),
+    "upload_heartbeat": ("post", "/jobs/upload-heartbeat", "upload_heartbeat"),
     "upload": ("post", "/upload", "upload"),
     "init_presigned_multipart_upload": (
         "post",
@@ -404,6 +405,27 @@ class Kanopy:
 
     def cancel_job(self, job_id: str) -> JsonObject:
         return self._object(self._json("POST", f"/jobs/{job_id}/cancel"))
+
+    def upload_heartbeat(self, job_ids: Sequence[str]) -> JsonObject:
+        """Renew the hold on jobs that are reserved but not yet uploading.
+
+        A job created ahead of its upload is held for 30 minutes; if no video
+        data has arrived by then it is treated as abandoned and deleted. A
+        script that reserves jobs for a batch up front and uploads them one at
+        a time will outlive that hold, and the jobs still waiting are deleted
+        mid-run. Call this every few minutes with the ids still waiting.
+
+        Jobs whose upload has already begun need no heartbeat. The returned
+        ``missing`` ids no longer exist and cannot be revived — re-create the
+        job to retry that video.
+        """
+        return self._object(
+            self._json(
+                "POST",
+                "/jobs/upload-heartbeat",
+                json={"job_ids": [str(job_id) for job_id in job_ids]},
+            )
+        )
 
     def wait_for_job(
         self,
