@@ -2850,12 +2850,14 @@
           "captured_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
+            "description": "Best available video capture time in UTC; falls back to job creation/upload time when video timing is unavailable. Not processing time.",
             "title": "Captured At"
           },
           "center_in_best_camera_frame": {
@@ -3046,11 +3048,25 @@
             ],
             "title": "Matching Method"
           },
+          "matching_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matching Review"
+          },
           "observation_id": {
             "title": "Observation Id",
             "type": "string"
           },
           "observed_at": {
+            "description": "Job update time in UTC when this observation was synchronized; may change on re-sync. Not flight time.",
+            "format": "date-time",
             "title": "Observed At",
             "type": "string"
           },
@@ -3134,6 +3150,7 @@
           "assessment_as_of": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -3435,6 +3452,7 @@
           "risk_computed_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -4601,6 +4619,22 @@
             ],
             "title": "Pruning Volume M3"
           },
+          "span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Id"
+          },
+          "span_identity_status": {
+            "default": "pending",
+            "title": "Span Identity Status",
+            "type": "string"
+          },
           "to_address": {
             "$ref": "#/components/schemas/AssetAddress"
           },
@@ -5322,6 +5356,18 @@
             ],
             "title": "Matching Method"
           },
+          "matching_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matching Review"
+          },
           "min_absolute_distance_m": {
             "anyOf": [
               {
@@ -5371,6 +5417,8 @@
             "type": "string"
           },
           "observed_at": {
+            "description": "Job update time in UTC when this observation was synchronized; may change on re-sync. Not flight time.",
+            "format": "date-time",
             "title": "Observed At",
             "type": "string"
           },
@@ -6628,7 +6676,7 @@
     }
   },
   "info": {
-    "description": "The supported, versioned API contract for customer integrations.",
+    "description": "The supported, versioned API contract for customer integrations. Timestamp fields use RFC 3339 UTC with an explicit Z suffix. Fractional seconds are optional (up to six digits); zero fractions are omitted. Legacy responses without an offset also represent UTC.",
     "title": "Kanopy Developer API",
     "version": "1"
   },
