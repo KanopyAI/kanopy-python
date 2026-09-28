@@ -270,3 +270,52 @@ copy after an intentional public API change with:
 ```bash
 ./scripts/sync_public_openapi.sh
 ```
+
+### Contractor organizations
+
+Create an **organization integration** key in Kanopy's API keys page. One key can
+work across the contractor's own organization and its currently supervised
+utilities. Only the contractor needs Kanopy API access enabled. Revoking a
+supervision grant removes access immediately; a key never grants access to an
+unrelated organization.
+
+```python
+import os
+from kanopy import Kanopy
+
+key = os.environ["KANOPY_API_KEY"]
+with Kanopy(key) as contractor:
+    organizations = contractor.list_organizations()
+    utility = contractor.create_organization("North Utility")
+
+with Kanopy(key, organization_id=utility["id"]) as utility_client:
+    project = utility_client.create_project("North corridor")
+    invite = utility_client.invite_organization_member(
+        utility["id"], email="crew@example.com"
+    )
+    members = utility_client.list_organization_members(utility["id"])
+```
+
+`organization_id` sets `X-Kanopy-Organization-Id` on API requests. Use one client
+context per target when working concurrently. Without it, collection requests
+use the key owner's organization. Project/job resource URLs resolve their owning
+organization; a supplied header must agree. Directory methods take the target
+organization explicitly and must also agree with any configured header. The
+header and API credential are never sent to presigned storage URLs.
+
+Grant only the permissions required by the integration:
+
+- `resources:read` / `resources:write` for resource discovery and uploads.
+- `organizations:create` for new supervised utilities, within the contractor's
+  Kanopy supervision limit. This requires a key following all accessible
+  organizations; selected-subset keys cannot create organizations.
+- `organization:manage` for member invitations, updates, and removals, respecting
+  Kanopy's per-organization user limit and last-administrator protection. Use
+  `role="admin"` to invite an administrator, as on the Organizations page.
+- `webhooks:manage` / `audit:read` for the target organization's webhooks and audit log.
+
+Organization-owned keys share a persistent integration identity, consume no user
+seats, and survive employee offboarding. Owner-organization administrators can
+rotate or revoke them. Personal keys remain tied to their creating user. The
+identity and home organization endpoints (`get_identity`, `get_my_organization`)
+always describe the key owner, regardless of the target context.

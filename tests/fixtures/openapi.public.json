@@ -1138,6 +1138,78 @@
         "title": "CategoryOption",
         "type": "object"
       },
+      "ClientSummary": {
+        "properties": {
+          "company_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "pending_job_count": {
+            "default": 0,
+            "title": "Pending Job Count",
+            "type": "integer"
+          },
+          "project_count": {
+            "default": 0,
+            "title": "Project Count",
+            "type": "integer"
+          },
+          "total_job_count": {
+            "default": 0,
+            "title": "Total Job Count",
+            "type": "integer"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ClientSummary",
+        "type": "object"
+      },
       "CoordinatesRequest": {
         "properties": {
           "latitude": {
@@ -4377,6 +4449,29 @@
       },
       "SpanResponse": {
         "properties": {
+          "assessment_captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Captured At"
+          },
+          "assessment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Status"
+          },
           "chunk_id": {
             "anyOf": [
               {
@@ -4538,6 +4633,13 @@
             ],
             "title": "From Radius M"
           },
+          "grid_tree_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Grid Tree Ids",
+            "type": "array"
+          },
           "job_id": {
             "title": "Job Id",
             "type": "string"
@@ -4607,6 +4709,18 @@
               }
             ],
             "title": "Phase Count"
+          },
+          "pruning_curve": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pruning Curve"
           },
           "pruning_volume_m3": {
             "anyOf": [
@@ -6210,6 +6324,22 @@
         "title": "UploadHeartbeatResponse",
         "type": "object"
       },
+      "UtilityOrganizationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "UtilityOrganizationCreate",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -6823,6 +6953,16 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6962,6 +7102,16 @@
               ],
               "title": "To"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7045,6 +7195,15 @@
                     },
                     "id": {
                       "title": "Id",
+                      "type": "string"
+                    },
+                    "identity_type": {
+                      "default": "user",
+                      "enum": [
+                        "user",
+                        "organization_integration"
+                      ],
+                      "title": "Identity Type",
                       "type": "string"
                     },
                     "organization_id": {
@@ -7148,6 +7307,80 @@
         ]
       }
     },
+    "/auth/organizations": {
+      "get": {
+        "operationId": "list_accessible_organizations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClientSummary"
+                  },
+                  "title": "Response List Accessible Organizations Api V1 Auth Organizations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Accessible Organizations",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "create_utility_organization",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UtilityOrganizationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Utility Organization",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/auth/organizations/{organization_id}/invites": {
       "post": {
         "operationId": "invite_organization_member",
@@ -7158,6 +7391,16 @@
             "required": true,
             "schema": {
               "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -7215,6 +7458,16 @@
             "required": true,
             "schema": {
               "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -7277,6 +7530,16 @@
               "title": "User Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7322,6 +7585,16 @@
             "required": true,
             "schema": {
               "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -7371,7 +7644,7 @@
     },
     "/feedback": {
       "get": {
-        "description": "Your reports and statuses in your current organization, including asset notes.\n\nThese are your original submissions; staff notes and snapshots stay private.",
+        "description": "Your reports and statuses across accessible organizations, including asset notes.\n\nThese are your original submissions; staff notes and snapshots stay private.",
         "operationId": "list_my_feedback",
         "parameters": [
           {
@@ -7445,6 +7718,16 @@
               ],
               "title": "Cursor"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7482,6 +7765,18 @@
       "post": {
         "description": "Submit general platform feedback, without a project or asset.",
         "operationId": "submit_general_feedback",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -7642,6 +7937,16 @@
               "title": "Library Only",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7682,6 +7987,18 @@
       "post": {
         "description": "Create a new job with UPLOADING status.\n\nThis endpoint is called before the actual file upload begins,\nallowing the frontend to show the job in the list immediately.",
         "operationId": "create_job",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -7729,6 +8046,18 @@
       "post": {
         "description": "Keep reserved-but-not-yet-started uploads from expiring.\n\nA job created ahead of its upload is held for 30 minutes; if no video data\nhas arrived by then it is treated as abandoned and deleted. That is the\nright default for a closed browser tab, but it also expires the tail of any\nbatch that reserves its jobs up front and uploads them one at a time.\n\nCall this periodically \u2014 every few minutes \u2014 with the jobs still waiting to\nupload, and their hold is renewed. Jobs whose upload has already begun are\nunaffected and need no heartbeat.\n\n``refreshed`` lists the jobs whose hold was renewed. ``missing`` lists ids\nthat no longer exist: already expired, deleted, or not yours. Those cannot\nbe revived, so treat them as failed and re-create the job to retry.",
         "operationId": "upload_heartbeat",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -7786,6 +8115,16 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7837,6 +8176,16 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -7885,6 +8234,16 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -7944,6 +8303,16 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8038,6 +8407,16 @@
               "description": "Optional projected, metre-based EPSG code for georeferenced point clouds, for example 26916 for NAD83 / UTM zone 16N. Omit to use WGS84 with a UTM zone selected from the complete job location.",
               "title": "Point Cloud Epsg"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8090,6 +8469,16 @@
                 }
               ],
               "title": "Job Id"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
             }
           }
         ],
@@ -8155,6 +8544,16 @@
               "title": "Output Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8201,6 +8600,16 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8261,6 +8670,16 @@
               "title": "Job Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8303,6 +8722,16 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8359,6 +8788,16 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8436,6 +8875,16 @@
                 "spans"
               ],
               "title": "Table",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8527,6 +8976,16 @@
               "title": "Include Clearance Standards",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8567,6 +9026,18 @@
       },
       "post": {
         "operationId": "create_project",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8623,6 +9094,16 @@
               "title": "Project Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8659,6 +9140,16 @@
             "required": true,
             "schema": {
               "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8704,6 +9195,16 @@
             "required": true,
             "schema": {
               "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8763,6 +9264,16 @@
             "schema": {
               "format": "uuid",
               "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -8846,6 +9357,16 @@
               ],
               "title": "Point Cloud Epsg"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8903,6 +9424,16 @@
             "schema": {
               "format": "uuid",
               "title": "Export Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -9065,6 +9596,16 @@
               ],
               "title": "Cursor"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9110,6 +9651,16 @@
             "schema": {
               "format": "uuid",
               "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -9178,6 +9729,16 @@
             "schema": {
               "format": "uuid",
               "title": "Feedback Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -9262,6 +9823,16 @@
               ],
               "title": "Point Cloud Epsg"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9331,6 +9902,16 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9393,6 +9974,16 @@
               },
               "title": "Job Ids",
               "type": "array"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
             }
           }
         ],
@@ -9680,6 +10271,16 @@
               "title": "Include Facets",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -9846,6 +10447,16 @@
               "description": "Include collection-wide span totals",
               "title": "Include Totals",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
             }
           }
         ],
@@ -10162,6 +10773,16 @@
               "title": "Include Facets",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10298,6 +10919,16 @@
               "title": "Include Camera Poses",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10356,6 +10987,16 @@
               "title": "Tree Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10410,6 +11051,16 @@
             "schema": {
               "format": "uuid",
               "title": "Tree Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -10481,6 +11132,16 @@
               "title": "Project Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -10519,6 +11180,18 @@
     "/upload": {
       "post": {
         "operationId": "upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -10568,6 +11241,18 @@
       "post": {
         "description": "Abort exactly the active multipart upload owned by this job.",
         "operationId": "abort_presigned_multipart_upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10607,6 +11292,18 @@
     "/upload/complete-presigned": {
       "post": {
         "operationId": "complete_presigned_upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -10655,6 +11352,18 @@
     "/upload/complete-presigned-multipart": {
       "post": {
         "operationId": "complete_presigned_multipart_upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -10704,6 +11413,18 @@
       "post": {
         "description": "Prepare a job and return a presigned S3 URL for direct video upload.\n\nReuses an existing pre-created job when ``job_id`` is provided so the\nfrontend queue and the upload pipeline operate on the same job record.\nReturns 501 when direct-to-storage upload is not available in this environment.",
         "operationId": "init_presigned_upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10753,6 +11474,18 @@
       "post": {
         "description": "Initiate a multipart presigned upload. Reuses the same job-setup logic as\n``init_presigned_upload`` but creates an S3 multipart upload instead of a\nsingle-PUT presigned URL.",
         "operationId": "init_presigned_multipart_upload",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10800,6 +11533,18 @@
       "post": {
         "deprecated": true,
         "operationId": "inspect_action_video",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -10846,6 +11591,18 @@
     "/upload/inspect-flight-log": {
       "post": {
         "operationId": "inspect_flight_log",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {
@@ -10893,6 +11650,18 @@
       "post": {
         "description": "Return a presigned URL for uploading a single multipart part.",
         "operationId": "presign_multipart_part",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10940,6 +11709,18 @@
       "post": {
         "description": "Reverse-geocode latitude/longitude pairs without uploading a video or flight log.\n\nIntended for frontend flows that extract GPS locally (e.g., GoPro GPMF parsing).",
         "operationId": "reverse_geocode_coordinates",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10986,6 +11767,18 @@
     "/webhooks": {
       "get": {
         "operationId": "list_webhooks",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -11015,6 +11808,18 @@
       "post": {
         "description": "Register a URL to receive event notifications. The signing secret is returned **once** \u2014 store it securely. Verify incoming requests by checking the `X-Kanopy-Signature` header.",
         "operationId": "create_webhook",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11071,6 +11876,16 @@
               "title": "Webhook Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11108,6 +11923,16 @@
             "schema": {
               "format": "uuid",
               "title": "Webhook Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -11155,6 +11980,16 @@
             "schema": {
               "format": "uuid",
               "title": "Webhook Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }
@@ -11228,6 +12063,16 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11280,6 +12125,16 @@
               "title": "Webhook Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11327,6 +12182,16 @@
             "schema": {
               "format": "uuid",
               "title": "Webhook Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
               "type": "string"
             }
           }

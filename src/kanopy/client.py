@@ -15,8 +15,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import ExitStack
 from os import PathLike
 from pathlib import Path
-from typing import Any, BinaryIO
-from uuid import uuid4
+from typing import Any, BinaryIO, Literal
+from uuid import UUID, uuid4
 from xml.sax.saxutils import escape
 
 import httpx
@@ -51,6 +51,36 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
     "get_identity": ("get", "/auth/me", "me"),
     "get_my_usage": ("get", "/auth/me/usage", "get_my_usage"),
     "get_my_organization": ("get", "/auth/me/organization", "get_my_organization"),
+    "list_organizations": (
+        "get",
+        "/auth/organizations",
+        "list_accessible_organizations",
+    ),
+    "create_organization": (
+        "post",
+        "/auth/organizations",
+        "create_utility_organization",
+    ),
+    "list_organization_members": (
+        "get",
+        "/auth/organizations/{organization_id}/members",
+        "list_organization_members",
+    ),
+    "invite_organization_member": (
+        "post",
+        "/auth/organizations/{organization_id}/invites",
+        "invite_organization_member",
+    ),
+    "update_organization_member": (
+        "patch",
+        "/auth/organizations/{organization_id}/members/{user_id}",
+        "update_organization_member",
+    ),
+    "remove_organization_member": (
+        "delete",
+        "/auth/organizations/{organization_id}/members/{user_id}",
+        "remove_organization_member",
+    ),
     "list_projects": ("get", "/projects", "list_projects"),
     "create_project": ("post", "/projects", "create_project"),
     "get_project": ("get", "/projects/{project_id}", "get_project"),
@@ -155,6 +185,7 @@ class Kanopy:
         api_key: str,
         *,
         base_url: str = DEFAULT_BASE_URL,
+        organization_id: str | UUID | None = None,
         timeout: float | httpx.Timeout = 30.0,
         transport: httpx.BaseTransport | None = None,
         upload_transport: httpx.BaseTransport | None = None,
@@ -162,6 +193,14 @@ class Kanopy:
     ) -> None:
         if not api_key.strip():
             raise ValueError("api_key must not be empty")
+        # Fixed per client, avoiding mutable tenant context during concurrent
+        # uploads. The storage client below never receives API credentials or
+        # organization headers.
+        organization_headers = {}
+        if organization_id is not None:
+            organization_headers["X-Kanopy-Organization-Id"] = str(
+                UUID(str(organization_id))
+            )
         normalized_base_url = base_url.rstrip("/") + "/"
         self._client = httpx.Client(
             base_url=normalized_base_url,
@@ -169,6 +208,7 @@ class Kanopy:
             transport=transport,
             follow_redirects=False,
             headers={
+                **organization_headers,
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
                 "User-Agent": f"kanopy-ai-python/{__version__}",
@@ -280,6 +320,71 @@ class Kanopy:
 
     def get_my_organization(self) -> JsonObject:
         return self._object(self._json("GET", "/auth/me/organization"))
+
+    # Organizations
+
+    @staticmethod
+    def _objects(value: Any) -> list[JsonObject]:
+        if not isinstance(value, list) or any(
+            not isinstance(item, dict) for item in value
+        ):
+            raise ValueError("Expected a list of objects from Kanopy API")
+        return value
+
+    def list_organizations(self) -> list[JsonObject]:
+        """List a contractor's currently accessible organizations within key scope."""
+        return self._objects(self._json("GET", "/auth/organizations"))
+
+    def create_organization(self, name: str) -> JsonObject:
+        """Create a supervised utility; requires organizations:create and capacity.
+
+        Restricted-subset keys cannot create organizations. A successful create
+        adds a live grant and is visible to keys following all organization access.
+        """
+        return self._object(
+            self._json("POST", "/auth/organizations", json={"name": name})
+        )
+
+    def list_organization_members(self, organization_id: str) -> list[JsonObject]:
+        org_id = UUID(str(organization_id))
+        return self._objects(self._json("GET", f"/auth/organizations/{org_id}/members"))
+
+    def invite_organization_member(
+        self,
+        organization_id: str,
+        *,
+        email: str | None = None,
+        role: Literal["member", "admin"] = "member",
+        expires_in_days: int = 7,
+    ) -> JsonObject:
+        """Invite a member or admin within Kanopy's per-organization user limit."""
+        org_id = UUID(str(organization_id))
+        payload = {
+            "email_hint": email,
+            "expires_in_days": expires_in_days,
+            "target_member_role": role,
+            "max_uses": 1,
+        }
+        return self._object(
+            self._json("POST", f"/auth/organizations/{org_id}/invites", json=payload)
+        )
+
+    def update_organization_member(
+        self, organization_id: str, user_id: str, *, role: str
+    ) -> JsonObject:
+        """Update a role within the organization, preserving its last administrator."""
+        org_id, member_id = UUID(str(organization_id)), UUID(str(user_id))
+        return self._object(
+            self._json(
+                "PATCH",
+                f"/auth/organizations/{org_id}/members/{member_id}",
+                json={"role": role},
+            )
+        )
+
+    def remove_organization_member(self, organization_id: str, user_id: str) -> None:
+        org_id, member_id = UUID(str(organization_id)), UUID(str(user_id))
+        self._request("DELETE", f"/auth/organizations/{org_id}/members/{member_id}")
 
     # Projects
 
