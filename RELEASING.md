@@ -14,17 +14,23 @@ token belongs in GitHub, a local environment, or this repository.
 
 ## Release checklist
 
-1. Choose the version and update both `setup.cfg` and
-   `src/kanopy/__init__.py`.
+1. Choose the version and update `src/kanopy/_version.py`.
 2. From the private Kanopy development repository, run
    `./scripts/sync_public_openapi.sh`, then review and commit the SDK fixture.
 3. Run `./scripts/run_local_smoke.sh` against the current backend Docker build.
 4. Run `python -m pytest`, Ruff checks, and a clean package build.
 5. Merge through the protected `main` branch and confirm CI passes.
-6. Create and push the matching tag, for example `v0.1.0`.
-7. Review and approve the `pypi` deployment environment.
+6. Confirm that `Auto-tag SDK release` created the matching tag and dispatched
+   `Release to PyPI`. The workflow fails instead of silently skipping when
+   release-relevant files changed without a version bump.
+7. Review and approve the `pypi` deployment environment. This is the only
+   manual publishing step.
 8. Install the exact published version into a clean environment and run the
    read-only identity/project-list smoke check against staging.
+
+If automatic dispatch fails after the tag is created, run `Release to PyPI`
+manually against that tag from the GitHub Actions page. A direct `v*` tag push
+also remains supported.
 
 The release job rebuilds nothing after approval: the publishing job downloads
 the exact wheel and source distribution produced and inspected by the build

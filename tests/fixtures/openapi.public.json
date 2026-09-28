@@ -24,6 +24,209 @@
         "title": "AbortMultipartRequest",
         "type": "object"
       },
+      "AddressResult": {
+        "properties": {
+          "attribution": {
+            "title": "Attribution",
+            "type": "string"
+          },
+          "attribution_url": {
+            "title": "Attribution Url",
+            "type": "string"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "house_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "House Number"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "matched_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Latitude"
+          },
+          "matched_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Longitude"
+          },
+          "postal_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Postal Code"
+          },
+          "precision": {
+            "enum": [
+              "address",
+              "street",
+              "locality"
+            ],
+            "title": "Precision",
+            "type": "string"
+          },
+          "provider": {
+            "enum": [
+              "aws",
+              "nominatim"
+            ],
+            "title": "Provider",
+            "type": "string"
+          },
+          "query_latitude": {
+            "title": "Query Latitude",
+            "type": "number"
+          },
+          "query_longitude": {
+            "title": "Query Longitude",
+            "type": "number"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "street": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Street"
+          }
+        },
+        "required": [
+          "label",
+          "provider",
+          "precision",
+          "query_latitude",
+          "query_longitude",
+          "attribution",
+          "attribution_url"
+        ],
+        "title": "AddressResult",
+        "type": "object"
+      },
+      "AssetAddress": {
+        "properties": {
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry_after_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After Seconds"
+          },
+          "status": {
+            "default": "not_requested",
+            "enum": [
+              "not_requested",
+              "unavailable",
+              "pending",
+              "ready",
+              "not_found",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "title": "AssetAddress",
+        "type": "object"
+      },
       "AuditEventPage": {
         "properties": {
           "events": {
@@ -274,6 +477,7 @@
             "title": "Gps Track File"
           },
           "job_id": {
+            "description": "Job ID from init-presigned",
             "title": "Job Id",
             "type": "string"
           },
@@ -307,11 +511,9 @@
                 "type": "null"
               }
             ],
-            "description": "Original client filename of the video (for duplicate detection)",
             "title": "Original Filename"
           },
           "parts_json": {
-            "description": "JSON array of {PartNumber, ETag}",
             "title": "Parts Json",
             "type": "string"
           },
@@ -450,12 +652,10 @@
                 "type": "null"
               }
             ],
-            "description": "Metadata file",
             "title": "Metadata"
           },
           "metadata_files": {
             "default": [],
-            "description": "Additional flight logs",
             "items": {
               "contentMediaType": "application/octet-stream",
               "type": "string"
@@ -472,7 +672,6 @@
                 "type": "null"
               }
             ],
-            "description": "Original client filename of the video (for duplicate detection)",
             "title": "Original Filename"
           },
           "pole_height_m": {
@@ -519,7 +718,6 @@
         "properties": {
           "video": {
             "contentMediaType": "application/octet-stream",
-            "description": "Action camera video file (GoPro MP4 with embedded GPS/GPMF metadata)",
             "title": "Video",
             "type": "string"
           }
@@ -534,7 +732,7 @@
         "properties": {
           "metadata": {
             "contentMediaType": "application/octet-stream",
-            "description": "Flight log file (.txt or .csv)",
+            "description": "Flight log file",
             "title": "Metadata",
             "type": "string"
           },
@@ -547,7 +745,6 @@
                 "type": "null"
               }
             ],
-            "description": "Video creation time in seconds since epoch (UTC)",
             "title": "Video Creation Time"
           },
           "video_duration": {
@@ -559,7 +756,6 @@
                 "type": "null"
               }
             ],
-            "description": "Video duration in seconds. When provided alongside video_creation_time, the GPS track is trimmed to the video window so adaptive FPS reflects only the recorded segment of the flight.",
             "title": "Video Duration"
           }
         },
@@ -580,7 +776,6 @@
                 "type": "null"
               }
             ],
-            "description": "Capture device used for the footage (drone|action_cam|phone)",
             "title": "Capture Device"
           },
           "circuit_clearance_m": {
@@ -592,7 +787,6 @@
                 "type": "null"
               }
             ],
-            "description": "Optional vertical spacing between stacked circuits in metres for legacy wire fitting.",
             "title": "Circuit Clearance M"
           },
           "circuit_count": {
@@ -605,7 +799,6 @@
               }
             ],
             "default": 1,
-            "description": "Number of vertically stacked circuits to fit per span for legacy wire fitting.",
             "title": "Circuit Count"
           },
           "circuit_width_m": {
@@ -617,7 +810,6 @@
                 "type": "null"
               }
             ],
-            "description": "Optional lateral width override for conductors within each circuit, in metres.",
             "title": "Circuit Width M"
           },
           "conductor_class": {
@@ -629,7 +821,6 @@
                 "type": "null"
               }
             ],
-            "description": "User-selected conductor class (e.g., Distribution|Sub-transmission|Transmission)",
             "title": "Conductor Class"
           },
           "flight_latitude": {
@@ -641,7 +832,6 @@
                 "type": "null"
               }
             ],
-            "description": "Latitude extracted from the flight log",
             "title": "Flight Latitude"
           },
           "flight_location_title": {
@@ -653,7 +843,6 @@
                 "type": "null"
               }
             ],
-            "description": "Location title derived from the flight log",
             "title": "Flight Location Title"
           },
           "flight_longitude": {
@@ -665,7 +854,6 @@
                 "type": "null"
               }
             ],
-            "description": "Longitude extracted from the flight log",
             "title": "Flight Longitude"
           },
           "flight_state": {
@@ -677,7 +865,6 @@
                 "type": "null"
               }
             ],
-            "description": "US state name derived from the flight log location",
             "title": "Flight State"
           },
           "flight_state_abbr": {
@@ -689,7 +876,6 @@
                 "type": "null"
               }
             ],
-            "description": "US state abbreviation derived from the flight log location",
             "title": "Flight State Abbr"
           },
           "gps_track": {
@@ -701,7 +887,6 @@
                 "type": "null"
               }
             ],
-            "description": "Canonical gps_track.json payload as a JSON form field (legacy/iOS direct upload)",
             "title": "Gps Track"
           },
           "gps_track_file": {
@@ -714,7 +899,6 @@
                 "type": "null"
               }
             ],
-            "description": "Canonical gps_track.json sidecar extracted on the client",
             "title": "Gps Track File"
           },
           "is_360_video": {
@@ -726,7 +910,6 @@
                 "type": "null"
               }
             ],
-            "description": "Whether this is a 360-degree video (action_cam only). Triggers frame splitting into multiple perspective views.",
             "title": "Is 360 Video"
           },
           "job_id": {
@@ -738,7 +921,6 @@
                 "type": "null"
               }
             ],
-            "description": "Existing job ID to update (if job was pre-created)",
             "title": "Job Id"
           },
           "line_clearance": {
@@ -750,7 +932,6 @@
                 "type": "null"
               }
             ],
-            "description": "Whether to enable line clearance pipeline (wire/pole segmentation, wire fitting, measurements). Defaults to True.",
             "title": "Line Clearance"
           },
           "metadata": {
@@ -763,12 +944,10 @@
                 "type": "null"
               }
             ],
-            "description": "Metadata describing the video flight",
             "title": "Metadata"
           },
           "metadata_files": {
             "default": [],
-            "description": "Additional flight logs for batch drone uploads",
             "items": {
               "contentMediaType": "application/octet-stream",
               "type": "string"
@@ -786,7 +965,6 @@
               }
             ],
             "default": 2,
-            "description": "Number of phases to fit per span for legacy wire fitting.",
             "title": "Phase Count"
           },
           "pole_height_m": {
@@ -798,7 +976,6 @@
                 "type": "null"
               }
             ],
-            "description": "Reference pole height in metres for no-GPS scale recovery",
             "title": "Pole Height M"
           },
           "project_id": {
@@ -810,7 +987,6 @@
                 "type": "null"
               }
             ],
-            "description": "Frontend project ID",
             "title": "Project Id"
           },
           "project_uuid": {
@@ -822,7 +998,6 @@
                 "type": "null"
               }
             ],
-            "description": "Backend project ID",
             "title": "Project Uuid"
           },
           "split_360_n_views": {
@@ -834,7 +1009,6 @@
                 "type": "null"
               }
             ],
-            "description": "Number of perspective views to generate from each 360-degree frame (default: 6)",
             "title": "Split 360 N Views"
           },
           "split_360_view_mode": {
@@ -846,7 +1020,6 @@
                 "type": "null"
               }
             ],
-            "description": "360 split mode defining kept views (front|front&back|full). Overrides split_360_n_views when provided.",
             "title": "Split 360 View Mode"
           },
           "title": {
@@ -858,7 +1031,6 @@
                 "type": "null"
               }
             ],
-            "description": "User-facing job title",
             "title": "Title"
           },
           "transcode_config": {
@@ -870,7 +1042,6 @@
                 "type": "null"
               }
             ],
-            "description": "Adaptive transcode configuration used on the client (JSON encoded)",
             "title": "Transcode Config"
           },
           "use_pole_scale_reference": {
@@ -882,7 +1053,6 @@
                 "type": "null"
               }
             ],
-            "description": "No-GPS path: recover metric scale from pole_height_m instead of a GPS track",
             "title": "Use Pole Scale Reference"
           },
           "video": {
@@ -900,7 +1070,6 @@
                 "type": "null"
               }
             ],
-            "description": "User-selected voltage class (e.g., <13.2 kV|23-69 kV|115-345 kV)",
             "title": "Voltage Class"
           }
         },
@@ -920,6 +1089,55 @@
         "title": "CaptureDevice",
         "type": "string"
       },
+      "CategoryOption": {
+        "properties": {
+          "asset_types": {
+            "items": {
+              "enum": [
+                "tree",
+                "pole"
+              ],
+              "type": "string"
+            },
+            "title": "Asset Types",
+            "type": "array"
+          },
+          "code": {
+            "enum": [
+              "species",
+              "ai_assessment",
+              "measurements",
+              "point_cloud",
+              "location",
+              "wires",
+              "report",
+              "interface",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemOption"
+            },
+            "title": "Problems",
+            "type": "array"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "asset_types",
+          "problems"
+        ],
+        "title": "CategoryOption",
+        "type": "object"
+      },
       "CoordinatesRequest": {
         "properties": {
           "latitude": {
@@ -936,6 +1154,442 @@
           "longitude"
         ],
         "title": "CoordinatesRequest",
+        "type": "object"
+      },
+      "FeedbackCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "asset_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tree",
+                  "pole"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Type"
+          },
+          "category": {
+            "enum": [
+              "species",
+              "ai_assessment",
+              "measurements",
+              "point_cloud",
+              "location",
+              "wires",
+              "report",
+              "interface",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "chunk_index": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Index"
+          },
+          "expected_value": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Value"
+          },
+          "instance_id": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "note": {
+            "maxLength": 5000,
+            "minLength": 3,
+            "title": "Note",
+            "type": "string"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "problem_type": {
+            "enum": [
+              "incorrect",
+              "missing",
+              "unexpected",
+              "duplicate",
+              "misaligned",
+              "incomplete",
+              "not_loading",
+              "unreadable",
+              "other"
+            ],
+            "title": "Problem Type",
+            "type": "string"
+          },
+          "request_id": {
+            "description": "Client-generated UUID; reuse on retry to avoid duplicate reports.",
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source": {
+            "default": "api",
+            "enum": [
+              "preview",
+              "analytics_table",
+              "map",
+              "measurement_viewer",
+              "pdf",
+              "help",
+              "api"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "category",
+          "problem_type",
+          "note"
+        ],
+        "title": "FeedbackCreate",
+        "type": "object"
+      },
+      "FeedbackPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackPublic"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "FeedbackPage",
+        "type": "object"
+      },
+      "FeedbackPublic": {
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "asset_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tree",
+                  "pole"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Type"
+          },
+          "category": {
+            "enum": [
+              "species",
+              "ai_assessment",
+              "measurements",
+              "point_cloud",
+              "location",
+              "wires",
+              "report",
+              "interface",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "chunk_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Index"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expected_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Value"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instance_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance Id"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "job_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Name"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "problem_type": {
+            "enum": [
+              "incorrect",
+              "missing",
+              "unexpected",
+              "duplicate",
+              "misaligned",
+              "incomplete",
+              "not_loading",
+              "unreadable",
+              "other"
+            ],
+            "title": "Problem Type",
+            "type": "string"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "project_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Name"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "scope": {
+            "enum": [
+              "platform",
+              "project",
+              "job",
+              "asset"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "preview",
+              "analytics_table",
+              "map",
+              "measurement_viewer",
+              "pdf",
+              "help",
+              "api"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "in_progress",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schema_version",
+          "scope",
+          "project_id",
+          "project_name",
+          "job_name",
+          "asset_type",
+          "asset_id",
+          "job_id",
+          "observation_id",
+          "instance_id",
+          "chunk_index",
+          "category",
+          "problem_type",
+          "source",
+          "note",
+          "expected_value",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FeedbackPublic",
+        "type": "object"
+      },
+      "FeedbackTaxonomy": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/CategoryOption"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "schema_version": {
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "categories"
+        ],
+        "title": "FeedbackTaxonomy",
         "type": "object"
       },
       "FlightLogInspectionResponse": {
@@ -1799,6 +2453,8 @@
           "PENDING",
           "LOCALIZING",
           "AWAITING_POLE_HEIGHT",
+          "AWAITING_ROUTE_REVIEW",
+          "SPLIT",
           "PROCESSING",
           "COMPLETED",
           "FAILED",
@@ -2084,6 +2740,20 @@
             "title": "Limit",
             "type": "integer"
           },
+          "pole_type_counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pole Type Counts"
+          },
           "poles": {
             "items": {
               "$ref": "#/components/schemas/PolePublic"
@@ -2108,6 +2778,11 @@
       "PoleObservationPublic": {
         "description": "One job-scoped observation within a pole response.",
         "properties": {
+          "added_by_user": {
+            "default": false,
+            "title": "Added By User",
+            "type": "boolean"
+          },
           "all_frames": {
             "items": {
               "additionalProperties": true,
@@ -2172,6 +2847,19 @@
             ],
             "title": "Best Camera Pose C2W"
           },
+          "captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Best available video capture time in UTC; falls back to job creation/upload time when video timing is unavailable. Not processing time.",
+            "title": "Captured At"
+          },
           "center_in_best_camera_frame": {
             "anyOf": [
               {
@@ -2211,6 +2899,17 @@
             ],
             "title": "Chunk Index"
           },
+          "effective_analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Analysis Id"
+          },
           "frames": {
             "items": {
               "additionalProperties": true,
@@ -2244,6 +2943,17 @@
               }
             ],
             "title": "Job Instance Id"
+          },
+          "job_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Title"
           },
           "label_id": {
             "anyOf": [
@@ -2338,11 +3048,25 @@
             ],
             "title": "Matching Method"
           },
+          "matching_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matching Review"
+          },
           "observation_id": {
             "title": "Observation Id",
             "type": "string"
           },
           "observed_at": {
+            "description": "Job update time in UTC when this observation was synchronized; may change on re-sync. Not flight time.",
+            "format": "date-time",
             "title": "Observed At",
             "type": "string"
           },
@@ -2391,6 +3115,11 @@
       "PolePublic": {
         "description": "Merged pole entity with all observations.",
         "properties": {
+          "added_by_user": {
+            "default": false,
+            "title": "Added By User",
+            "type": "boolean"
+          },
           "ai_analyses": {
             "items": {
               "additionalProperties": true,
@@ -2417,6 +3146,29 @@
               }
             ],
             "title": "Altitude"
+          },
+          "assessment_as_of": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment As Of"
+          },
+          "assessment_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assessment Job Id"
           },
           "best_camera_job_id": {
             "anyOf": [
@@ -2474,6 +3226,31 @@
             ],
             "title": "Center World"
           },
+          "effective_analysis_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Analysis Id"
+          },
+          "effective_analysis_ids_by_job_instance": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Effective Analysis Ids By Job Instance",
+            "type": "object"
+          },
           "frames": {
             "items": {
               "additionalProperties": true,
@@ -2492,6 +3269,18 @@
               }
             ],
             "title": "Height M"
+          },
+          "historical_worst": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historical Worst"
           },
           "instance_ids_by_job_id": {
             "additionalProperties": true,
@@ -2576,12 +3365,26 @@
             ],
             "title": "Longitude"
           },
+          "nearest_address": {
+            "$ref": "#/components/schemas/AssetAddress"
+          },
           "observations": {
             "items": {
               "$ref": "#/components/schemas/PoleObservationPublic"
             },
             "title": "Observations",
             "type": "array"
+          },
+          "org_scope_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Scope Id"
           },
           "pole_id": {
             "title": "Pole Id",
@@ -2649,6 +3452,7 @@
           "risk_computed_at": {
             "anyOf": [
               {
+                "format": "date-time",
                 "type": "string"
               },
               {
@@ -3003,6 +3807,35 @@
         "title": "PresignedUploadInitRequest",
         "type": "object"
       },
+      "ProblemOption": {
+        "properties": {
+          "code": {
+            "enum": [
+              "incorrect",
+              "missing",
+              "unexpected",
+              "duplicate",
+              "misaligned",
+              "incomplete",
+              "not_loading",
+              "unreadable",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "ProblemOption",
+        "type": "object"
+      },
       "ProjectCreate": {
         "properties": {
           "description": {
@@ -3179,6 +4012,11 @@
             ],
             "title": "Archived At"
           },
+          "clearance_priority_basis": {
+            "default": "radial",
+            "title": "Clearance Priority Basis",
+            "type": "string"
+          },
           "clearance_standards": {
             "anyOf": [
               {
@@ -3317,6 +4155,21 @@
       },
       "ProjectUpdate": {
         "properties": {
+          "clearance_priority_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "radial",
+                  "rectangular"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clearance Priority Basis"
+          },
           "clearance_standards": {
             "anyOf": [
               {
@@ -3408,6 +4261,74 @@
         "title": "ProjectUpdate",
         "type": "object"
       },
+      "RoutePlanCommit": {
+        "properties": {
+          "excludedStarts": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Excludedstarts",
+            "type": "array"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "revision": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Revision",
+            "type": "string"
+          },
+          "splitPoints": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 49,
+            "title": "Splitpoints",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision",
+          "requestId"
+        ],
+        "title": "RoutePlanCommit",
+        "type": "object"
+      },
+      "RoutePlanRequest": {
+        "properties": {
+          "excludedStarts": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 50,
+            "title": "Excludedstarts",
+            "type": "array"
+          },
+          "revision": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Revision",
+            "type": "string"
+          },
+          "splitPoints": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 49,
+            "title": "Splitpoints",
+            "type": "array"
+          }
+        },
+        "required": [
+          "revision"
+        ],
+        "title": "RoutePlanRequest",
+        "type": "object"
+      },
       "SpanListResponse": {
         "properties": {
           "limit": {
@@ -3417,6 +4338,11 @@
           "skip": {
             "title": "Skip",
             "type": "integer"
+          },
+          "sort_applied": {
+            "default": "position",
+            "title": "Sort Applied",
+            "type": "string"
           },
           "spans": {
             "items": {
@@ -3428,6 +4354,16 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "totals": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpanTotals"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -3482,6 +4418,9 @@
             "default": 0,
             "title": "Encroaching Tree Count",
             "type": "integer"
+          },
+          "from_address": {
+            "$ref": "#/components/schemas/AssetAddress"
           },
           "from_attachment_point": {
             "anyOf": [
@@ -3680,6 +4619,25 @@
             ],
             "title": "Pruning Volume M3"
           },
+          "span_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Id"
+          },
+          "span_identity_status": {
+            "default": "pending",
+            "title": "Span Identity Status",
+            "type": "string"
+          },
+          "to_address": {
+            "$ref": "#/components/schemas/AssetAddress"
+          },
           "to_attachment_point": {
             "anyOf": [
               {
@@ -3796,6 +4754,14 @@
             ],
             "title": "To Radius M"
           },
+          "tree_clearance_measurements": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Tree Clearance Measurements",
+            "type": "array"
+          },
           "tree_count": {
             "default": 0,
             "title": "Tree Count",
@@ -3871,6 +4837,139 @@
             ],
             "title": "Vegetated Distance Min M"
           },
+          "verdict_acceptable_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Acceptable Tree Count"
+          },
+          "verdict_applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Applied At"
+          },
+          "verdict_band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Band"
+          },
+          "verdict_critical_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Critical Tree Count"
+          },
+          "verdict_encroaching_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Encroaching Tree Count"
+          },
+          "verdict_high_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict High Tree Count"
+          },
+          "verdict_medium_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Medium Tree Count"
+          },
+          "verdict_pruning_volume_m3": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Pruning Volume M3"
+          },
+          "verdict_tree_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Tree Count"
+          },
+          "verdict_tvd_hazard_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Tvd Hazard M"
+          },
+          "verdict_tvd_maintenance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Tvd Maintenance M"
+          },
+          "verdict_tvd_priority_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict Tvd Priority M"
+          },
           "wire_instance_id": {
             "anyOf": [
               {
@@ -3895,8 +4994,98 @@
         "title": "SpanResponse",
         "type": "object"
       },
+      "SpanTotals": {
+        "description": "Sums over the whole collection, not the page.\n\nThe span table's footer totals the project. Once the table stops holding\nevery span it can no longer add them up itself, and totalling the page\nwould silently show a page-sized number where a project-sized one belongs.",
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "critical_tree_count": {
+            "default": 0,
+            "title": "Critical Tree Count",
+            "type": "integer"
+          },
+          "encroaching_tree_count": {
+            "default": 0,
+            "title": "Encroaching Tree Count",
+            "type": "integer"
+          },
+          "high_tree_count": {
+            "default": 0,
+            "title": "High Tree Count",
+            "type": "integer"
+          },
+          "length_m": {
+            "default": 0.0,
+            "title": "Length M",
+            "type": "number"
+          },
+          "pruning_volume_m3": {
+            "default": 0.0,
+            "title": "Pruning Volume M3",
+            "type": "number"
+          },
+          "span_count": {
+            "default": 0,
+            "title": "Span Count",
+            "type": "integer"
+          },
+          "tree_count": {
+            "default": 0,
+            "title": "Tree Count",
+            "type": "integer"
+          },
+          "tvd_hazard_m": {
+            "default": 0.0,
+            "title": "Tvd Hazard M",
+            "type": "number"
+          },
+          "tvd_maintenance_m": {
+            "default": 0.0,
+            "title": "Tvd Maintenance M",
+            "type": "number"
+          },
+          "tvd_priority_m": {
+            "default": 0.0,
+            "title": "Tvd Priority M",
+            "type": "number"
+          }
+        },
+        "title": "SpanTotals",
+        "type": "object"
+      },
       "TreeListResponse": {
         "properties": {
+          "band_counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Band Counts"
+          },
+          "fall_in_risk_counts": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fall In Risk Counts"
+          },
           "limit": {
             "default": 0,
             "title": "Limit",
@@ -4064,6 +5253,28 @@
             "title": "Frames",
             "type": "array"
           },
+          "governing_lateral_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governing Lateral M"
+          },
+          "governing_vertical_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governing Vertical M"
+          },
           "job_id": {
             "title": "Job Id",
             "type": "string"
@@ -4145,6 +5356,18 @@
             ],
             "title": "Matching Method"
           },
+          "matching_review": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matching Review"
+          },
           "min_absolute_distance_m": {
             "anyOf": [
               {
@@ -4194,6 +5417,8 @@
             "type": "string"
           },
           "observed_at": {
+            "description": "Job update time in UTC when this observation was synchronized; may change on re-sync. Not flight time.",
+            "format": "date-time",
             "title": "Observed At",
             "type": "string"
           },
@@ -4252,6 +5477,18 @@
               }
             ],
             "title": "Pruning Hull Volume M3"
+          },
+          "rectangular_clearance_profile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rectangular Clearance Profile"
           },
           "tree_hull_volume_m3": {
             "anyOf": [
@@ -4479,6 +5716,28 @@
             "title": "Frames",
             "type": "array"
           },
+          "governing_lateral_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governing Lateral M"
+          },
+          "governing_vertical_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Governing Vertical M"
+          },
           "historical_worst": {
             "anyOf": [
               {
@@ -4591,12 +5850,26 @@
             ],
             "title": "Min Underhang Height M"
           },
+          "nearest_address": {
+            "$ref": "#/components/schemas/AssetAddress"
+          },
           "observations": {
             "items": {
               "$ref": "#/components/schemas/TreeObservationPublic"
             },
             "title": "Observations",
             "type": "array"
+          },
+          "org_scope_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Org Scope Id"
           },
           "project_id": {
             "anyOf": [
@@ -4700,6 +5973,18 @@
             ],
             "title": "Pruning Recommended Volume M3"
           },
+          "rectangular_clearance_profile": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rectangular Clearance Profile"
+          },
           "risk_breakdown": {
             "anyOf": [
               {
@@ -4797,6 +6082,17 @@
             "title": "Segmentation Base Urls By Job Id",
             "type": "object"
           },
+          "species_top": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Top"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -4869,6 +6165,49 @@
           "status"
         ],
         "title": "TreePublic",
+        "type": "object"
+      },
+      "UploadHeartbeatRequest": {
+        "properties": {
+          "job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Job Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "job_ids"
+        ],
+        "title": "UploadHeartbeatRequest",
+        "type": "object"
+      },
+      "UploadHeartbeatResponse": {
+        "properties": {
+          "missing": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "refreshed": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Refreshed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "refreshed",
+          "missing"
+        ],
+        "title": "UploadHeartbeatResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -5337,7 +6676,7 @@
     }
   },
   "info": {
-    "description": "The supported, versioned API contract for customer integrations.",
+    "description": "The supported, versioned API contract for customer integrations. Timestamp fields use RFC 3339 UTC with an explicit Z suffix. Fractional seconds are optional (up to six digits); zero fractions are omitted. Legacy responses without an offset also represent UTC.",
     "title": "Kanopy Developer API",
     "version": "1"
   },
@@ -6030,6 +7369,188 @@
         ]
       }
     },
+    "/feedback": {
+      "get": {
+        "description": "Your reports and statuses in your current organization, including asset notes.\n\nThese are your original submissions; staff notes and snapshots stay private.",
+        "operationId": "list_my_feedback",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "in_progress",
+                    "resolved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "platform",
+                    "project",
+                    "job",
+                    "asset"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scope"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List My Feedback",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "post": {
+        "description": "Submit general platform feedback, without a project or asset.",
+        "operationId": "submit_general_feedback",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit General Feedback",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/feedback/taxonomy": {
+      "get": {
+        "operationId": "get_feedback_taxonomy",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackTaxonomy"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Feedback Taxonomy",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
     "/jobs": {
       "get": {
         "description": "Return a paginated collection of jobs.\n\nJobs are always scoped to the authenticated user.\nResponse includes X-Total-Count header with the total number of matching jobs.",
@@ -6111,13 +7632,13 @@
             }
           },
           {
-            "description": "Exclude jobs still being compressed/uploaded by the client (no playable asset yet). Keeps pagination consistent with the video library, which hides those statuses.",
+            "description": "Exclude client uploads and source recordings replaced by split jobs. Keeps pagination consistent with the video library.",
             "in": "query",
             "name": "library_only",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Exclude jobs still being compressed/uploaded by the client (no playable asset yet). Keeps pagination consistent with the video library, which hides those statuses.",
+              "description": "Exclude client uploads and source recordings replaced by split jobs. Keeps pagination consistent with the video library.",
               "title": "Library Only",
               "type": "boolean"
             }
@@ -6199,6 +7720,53 @@
           }
         ],
         "summary": "Create Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/upload-heartbeat": {
+      "post": {
+        "description": "Keep reserved-but-not-yet-started uploads from expiring.\n\nA job created ahead of its upload is held for 30 minutes; if no video data\nhas arrived by then it is treated as abandoned and deleted. That is the\nright default for a closed browser tab, but it also expires the tail of any\nbatch that reserves its jobs up front and uploads them one at a time.\n\nCall this periodically \u2014 every few minutes \u2014 with the jobs still waiting to\nupload, and their hold is renewed. Jobs whose upload has already begun are\nunaffected and need no heartbeat.\n\n``refreshed`` lists the jobs whose hold was renewed. ``missing`` lists ids\nthat no longer exist: already expired, deleted, or not yours. Those cannot\nbe revived, so treat them as failed and re-create the job to retry.",
+        "operationId": "upload_heartbeat",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadHeartbeatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadHeartbeatResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Upload Heartbeat",
         "tags": [
           "jobs"
         ]
@@ -6675,6 +8243,162 @@
           }
         ],
         "summary": "Resume Job With Pole Height",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/route-review": {
+      "get": {
+        "operationId": "get_route_review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Route Review",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "put": {
+        "operationId": "save_route_review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutePlanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Save Route Review",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/route-review/commit": {
+      "post": {
+        "operationId": "submit_route_review",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutePlanCommit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Route Review",
         "tags": [
           "jobs"
         ]
@@ -7216,6 +8940,281 @@
         ]
       }
     },
+    "/projects/{project_id}/feedback": {
+      "get": {
+        "description": "List your own reports in an accessible project, newest changes first.",
+        "operationId": "list_project_feedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "asset_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Asset Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "job_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "in_progress",
+                    "resolved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "species",
+                    "ai_assessment",
+                    "measurements",
+                    "point_cloud",
+                    "location",
+                    "wires",
+                    "report",
+                    "interface",
+                    "other"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Project Feedback",
+        "tags": [
+          "feedback"
+        ]
+      },
+      "post": {
+        "description": "Report a project, accessible job, or visible tree/pole result. Reuse request_id on retry.",
+        "operationId": "submit_feedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Feedback",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
+    "/projects/{project_id}/feedback/{feedback_id}": {
+      "get": {
+        "operationId": "get_project_feedback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Project Feedback",
+        "tags": [
+          "feedback"
+        ]
+      }
+    },
     "/projects/{project_id}/folder-zip": {
       "get": {
         "description": "Download a customer-facing zip of every completed job in the project.\n\nSynchronous build \u2014 fine for scripting and small projects; the frontend\nuses the async POST /exports flow so large archives never occupy an API\nworker or time out at the gateway.",
@@ -7482,7 +9481,7 @@
             }
           },
           {
-            "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). When set, only poles with at least one observation in these chunks are returned, and observation rows in the response are limited to these chunks. Requires job_id.",
+            "description": "Comma-separated chunk indices; requires job_id",
             "in": "query",
             "name": "chunk_indices",
             "required": false,
@@ -7495,7 +9494,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). When set, only poles with at least one observation in these chunks are returned, and observation rows in the response are limited to these chunks. Requires job_id.",
+              "description": "Comma-separated chunk indices; requires job_id",
               "title": "Chunk Indices"
             }
           },
@@ -7527,7 +9526,7 @@
             }
           },
           {
-            "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+            "description": "Opaque keyset cursor. Pass an empty value to start.",
             "in": "query",
             "name": "cursor",
             "required": false,
@@ -7540,7 +9539,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+              "description": "Opaque keyset cursor. Pass an empty value to start.",
               "title": "Cursor"
             }
           },
@@ -7581,38 +9580,104 @@
             }
           },
           {
-            "description": "Include best-camera pose data and any camera-pose filesystem fallback",
+            "description": "Include best-camera pose data",
             "in": "query",
             "name": "include_camera_poses",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include best-camera pose data and any camera-pose filesystem fallback",
+              "description": "Include best-camera pose data",
               "title": "Include Camera Poses",
               "type": "boolean"
             }
           },
           {
-            "description": "Return only the total pole count without pole payloads",
+            "description": "Return only the total pole count",
             "in": "query",
             "name": "count_only",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Return only the total pole count without pole payloads",
+              "description": "Return only the total pole count",
               "title": "Count Only",
               "type": "boolean"
             }
           },
           {
-            "description": "Skip the COUNT query and return total=-1. Use for non-first pages when paginating in parallel.",
+            "description": "Skip the COUNT query for later pages",
             "in": "query",
             "name": "skip_count",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Skip the COUNT query and return total=-1. Use for non-first pages when paginating in parallel.",
+              "description": "Skip the COUNT query for later pages",
               "title": "Skip Count",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Column to order by",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Column to order by",
+              "title": "Sort"
+            }
+          },
+          {
+            "description": "'asc' or 'desc' (default: asc)",
+            "in": "query",
+            "name": "sort_dir",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "'asc' or 'desc' (default: asc)",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "description": "Filter by pole type: 'utility' or 'other'",
+            "in": "query",
+            "name": "pole_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by pole type: 'utility' or 'other'",
+              "title": "Pole Type"
+            }
+          },
+          {
+            "description": "Include collection-wide filter facet counts",
+            "in": "query",
+            "name": "include_facets",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include collection-wide filter facet counts",
+              "title": "Include Facets",
               "type": "boolean"
             }
           }
@@ -7706,7 +9771,7 @@
             }
           },
           {
-            "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+            "description": "Opaque keyset cursor. Pass an empty value to start.",
             "in": "query",
             "name": "cursor",
             "required": false,
@@ -7719,7 +9784,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+              "description": "Opaque keyset cursor. Pass an empty value to start.",
               "title": "Cursor"
             }
           },
@@ -7732,6 +9797,54 @@
               "default": false,
               "description": "Skip the count query for later pages",
               "title": "Skip Count",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Column to order by",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Column to order by",
+              "title": "Sort"
+            }
+          },
+          {
+            "description": "'asc' or 'desc' (default: desc)",
+            "in": "query",
+            "name": "sort_dir",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "'asc' or 'desc' (default: desc)",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "description": "Include collection-wide span totals",
+            "in": "query",
+            "name": "include_totals",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include collection-wide span totals",
+              "title": "Include Totals",
               "type": "boolean"
             }
           }
@@ -7771,7 +9884,6 @@
     },
     "/projects/{project_id}/trees": {
       "get": {
-        "description": "Return all trees for a project with merged observation data.",
         "operationId": "list_project_trees",
         "parameters": [
           {
@@ -7803,7 +9915,7 @@
             }
           },
           {
-            "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). When set, only trees with at least one observation in these chunks are returned, and observation rows in the response are limited to these chunks. Requires job_id.",
+            "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). Requires job_id.",
             "in": "query",
             "name": "chunk_indices",
             "required": false,
@@ -7816,7 +9928,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). When set, only trees with at least one observation in these chunks are returned, and observation rows in the response are limited to these chunks. Requires job_id.",
+              "description": "Comma-separated chunk indices to filter observations to (e.g. '0,1,2'). Requires job_id.",
               "title": "Chunk Indices"
             }
           },
@@ -7848,7 +9960,7 @@
             }
           },
           {
-            "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+            "description": "Opaque keyset cursor. Pass an empty value to start.",
             "in": "query",
             "name": "cursor",
             "required": false,
@@ -7861,7 +9973,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Opaque keyset cursor. Pass an empty value to start cursor pagination.",
+              "description": "Opaque keyset cursor. Pass an empty value to start.",
               "title": "Cursor"
             }
           },
@@ -7902,50 +10014,152 @@
             }
           },
           {
-            "description": "Include vegetation-analysis entries projected from raw payloads",
+            "description": "Include vegetation-analysis entries",
             "in": "query",
             "name": "include_veg_analyses",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include vegetation-analysis entries projected from raw payloads",
+              "description": "Include vegetation-analysis entries",
               "title": "Include Veg Analyses",
               "type": "boolean"
             }
           },
           {
-            "description": "Include best-camera pose data and any camera-pose filesystem fallback",
+            "description": "Include best-camera pose data",
             "in": "query",
             "name": "include_camera_poses",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include best-camera pose data and any camera-pose filesystem fallback",
+              "description": "Include best-camera pose data",
               "title": "Include Camera Poses",
               "type": "boolean"
             }
           },
           {
-            "description": "Return only the total tree count without tree payloads",
+            "description": "Return only the total tree count",
             "in": "query",
             "name": "count_only",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Return only the total tree count without tree payloads",
+              "description": "Return only the total tree count",
               "title": "Count Only",
               "type": "boolean"
             }
           },
           {
-            "description": "Skip the COUNT query and return total=-1. Use for non-first pages when paginating in parallel.",
+            "description": "Skip the COUNT query for later pages",
             "in": "query",
             "name": "skip_count",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Skip the COUNT query and return total=-1. Use for non-first pages when paginating in parallel.",
+              "description": "Skip the COUNT query for later pages",
               "title": "Skip Count",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Column to order by",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Column to order by",
+              "title": "Sort"
+            }
+          },
+          {
+            "description": "'asc' or 'desc' (default: asc)",
+            "in": "query",
+            "name": "sort_dir",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "'asc' or 'desc' (default: asc)",
+              "title": "Sort Dir"
+            }
+          },
+          {
+            "description": "Match trees by display id prefix or species",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Match trees by display id prefix or species",
+              "title": "Search"
+            }
+          },
+          {
+            "description": "Comma-separated clearance bands to include",
+            "in": "query",
+            "name": "bands",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated clearance bands to include",
+              "title": "Bands"
+            }
+          },
+          {
+            "description": "Comma-separated fall-in-risk states to include",
+            "in": "query",
+            "name": "fall_in_risk",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated fall-in-risk states to include",
+              "title": "Fall In Risk"
+            }
+          },
+          {
+            "description": "Include collection-wide filter facet counts",
+            "in": "query",
+            "name": "include_facets",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include collection-wide filter facet counts",
+              "title": "Include Facets",
               "type": "boolean"
             }
           }
@@ -8119,6 +10333,140 @@
         ]
       }
     },
+    "/projects/{project_id}/trees/{tree_id}/address": {
+      "get": {
+        "description": "Read the stored address/status without making a geocoding request.",
+        "operationId": "get_project_tree_address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tree_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tree Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAddress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Project Tree Address",
+        "tags": [
+          "trees"
+        ]
+      },
+      "post": {
+        "description": "Resolve and persist this tree's address on demand. Cached results are reused.\n\nIntended for individual user requests. External requests share Nominatim's\napplication-wide rate budget; this is not a bulk geocoding endpoint.",
+        "operationId": "request_project_tree_address",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "title": "Project Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "tree_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Tree Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAddress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAddress"
+                }
+              }
+            },
+            "description": "A concurrent lookup is in progress; poll GET."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetAddress"
+                }
+              }
+            },
+            "description": "Temporary lookup failure; respect Retry-After."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Request Project Tree Address",
+        "tags": [
+          "trees"
+        ]
+      }
+    },
     "/projects/{project_id}/unarchive": {
       "post": {
         "description": "Restore an archived project back to the live workspace.",
@@ -8170,7 +10518,6 @@
     },
     "/upload": {
       "post": {
-        "description": "Accept video + metadata, persist them locally, and register or update a job.",
         "operationId": "upload",
         "requestBody": {
           "content": {
@@ -8259,7 +10606,6 @@
     },
     "/upload/complete-presigned": {
       "post": {
-        "description": "Finalize a presigned upload and dispatch its processing path.\n\nMetadata files (flight logs, GPS tracks) are still uploaded via this endpoint\nsince they are small enough for multipart form. Raw uploads return as soon as\nserver-side preparation is queued; transcoded uploads complete synchronously.",
         "operationId": "complete_presigned_upload",
         "requestBody": {
           "content": {
@@ -8308,7 +10654,6 @@
     },
     "/upload/complete-presigned-multipart": {
       "post": {
-        "description": "Finalize an S3 multipart upload and run the same finalize logic as\n``complete_presigned_upload``.",
         "operationId": "complete_presigned_multipart_upload",
         "requestBody": {
           "content": {
@@ -8454,7 +10799,6 @@
     "/upload/inspect-action-video": {
       "post": {
         "deprecated": true,
-        "description": "Deprecated: action-cam GPS extraction happens during server upload prep on\nthe raw object (worker/server_upload_prep.py); this endpoint requires a\nduplicate full upload and parses the file twice. No frontend callers remain.\n\nInspect an action-camera video to extract GPS coordinates for gating uploads.",
         "operationId": "inspect_action_video",
         "requestBody": {
           "content": {
@@ -8501,7 +10845,6 @@
     },
     "/upload/inspect-flight-log": {
       "post": {
-        "description": "Inspect a flight log to extract GPS coordinates and optionally reverse-geocode a title.\n\nThis endpoint is intended to run as soon as the user selects the flight log file,\nso the frontend can block uploads until coordinates are confirmed.",
         "operationId": "inspect_flight_log",
         "requestBody": {
           "content": {
