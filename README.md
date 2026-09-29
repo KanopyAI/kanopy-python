@@ -289,7 +289,7 @@ with Kanopy(key) as contractor:
     utility = contractor.create_organization("North Utility")
 
 with Kanopy(key, organization_id=utility["id"]) as utility_client:
-    project = utility_client.create_project("North corridor")
+    project = utility_client.create_project(name="North corridor")
     invite = utility_client.invite_organization_member(
         utility["id"], email="crew@example.com"
     )
