@@ -274,12 +274,14 @@ def test_download_project_export_waits_then_fetches_presigned_url(tmp_path) -> N
         )
 
     def storage_handler(request: httpx.Request) -> httpx.Response:
+        assert "X-Kanopy-Organization-Id" not in request.headers
         storage_requests.append(request)
         return httpx.Response(200, content=b"project archive")
 
     destination = tmp_path / "project.zip"
     with Kanopy(
         "key",
+        organization_id="00000000-0000-4000-8000-000000000002",
         transport=httpx.MockTransport(api_handler),
         upload_transport=httpx.MockTransport(storage_handler),
     ) as client:
@@ -703,3 +705,59 @@ def test_download_job_output_follows_presigned_redirect_without_the_api_key(
     assert destination.read_bytes() == b"ply bytes"
     # The bearer token must never reach the storage host.
     assert "authorization" not in {key.lower() for key in storage_requests[0].headers}
+
+
+def test_contractor_client_targets_organization_and_manages_directory() -> None:
+    org_id = "00000000-0000-4000-8000-000000000002"
+    user_id = "00000000-0000-4000-8000-000000000003"
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.headers["X-Kanopy-Organization-Id"] == org_id
+        if request.method == "GET":
+            return httpx.Response(200, json=[{"id": org_id}])
+        if request.method == "DELETE":
+            return httpx.Response(204)
+        return httpx.Response(201, json={"id": org_id})
+
+    with Kanopy(
+        "shared-contractor-key",
+        organization_id=org_id,
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        assert client.list_organizations() == [{"id": org_id}]
+        client.create_organization("Utility")
+        client.list_projects()
+        client.list_organization_members(org_id)
+        client.invite_organization_member(org_id, email="crew@example.test")
+        client.update_organization_member(org_id, user_id, role="member")
+        client.remove_organization_member(org_id, user_id)
+    assert [(r.method, r.url.path) for r in requests] == [
+        ("GET", "/api/v1/auth/organizations"),
+        ("POST", "/api/v1/auth/organizations"),
+        ("GET", "/api/v1/projects"),
+        ("GET", f"/api/v1/auth/organizations/{org_id}/members"),
+        ("POST", f"/api/v1/auth/organizations/{org_id}/invites"),
+        ("PATCH", f"/api/v1/auth/organizations/{org_id}/members/{user_id}"),
+        ("DELETE", f"/api/v1/auth/organizations/{org_id}/members/{user_id}"),
+    ]
+    assert json.loads(requests[1].content) == {"name": "Utility"}
+    assert json.loads(requests[4].content)["email_hint"] == "crew@example.test"
+    assert json.loads(requests[4].content)["target_member_role"] == "member"
+
+
+def test_invalid_organization_context_fails_before_sending_request() -> None:
+    with pytest.raises(ValueError):
+        Kanopy("key", organization_id="not-an-organization-id")
+
+
+def test_contractor_can_request_administrator_invitation() -> None:
+    org_id = "00000000-0000-4000-8000-000000000002"
+
+    def handler(request):
+        assert json.loads(request.content)["target_member_role"] == "admin"
+        return httpx.Response(201, json={"id": "invite"})
+
+    with Kanopy("key", transport=httpx.MockTransport(handler)) as client:
+        assert client.invite_organization_member(org_id, role="admin")["id"] == "invite"
