@@ -1,0 +1,14 @@
+{
+  "kind": "python",
+  "allowed_paths": [
+    "src/*",
+    "tests/*",
+    "docs/*",
+    "examples/*"
+  ],
+  "test_paths": [
+    "tests/test*.py",
+    "tests/*/test*.py"
+  ],
+  "validation_description": "Run selected pytest modules and every changed regression module, then Ruff checks and formatting validation for src/tests/scripts. Never publish a package."
+}
