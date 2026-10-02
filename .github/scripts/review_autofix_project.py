@@ -1,6 +1,7 @@
 """Repository-specific setup and verification, executed from the trusted checkout."""
 
 from contextlib import contextmanager
+import fnmatch
 import json
 import os
 from pathlib import Path
@@ -141,11 +142,14 @@ def setup(root, context, profile):
                 stream.write(f"REVIEW_NODE_BIN={Path(shutil.which('node')).parent}\n")
         run(["npm", "ci"], root)
         run(["npm", "ci", "--prefix", "packages/kanopy-embeds"], root)
-        if "frontend:embeds" in targets:
-            run(["npx", "playwright", "install", "--with-deps", "chromium"], root)
+        # Any repair may touch embeds source; install before sudo is removed.
+        run(["npx", "playwright", "install", "--with-deps", "chromium"], root)
     elif kind == "infra":
         run([sys.executable, "-m", "pip", "install", "boto3", "redis==5.0.1", "pytest"], root)
-        run(["terraform", "init", "-backend=false", "-input=false", "-lockfile=readonly"], root)
+        # A syntax error in the PR can prevent init. Let the agent repair the
+        # Terraform source first; the verifier still requires init and validate.
+        if "infra:terraform" not in targets:
+            run(["terraform", "init", "-backend=false", "-input=false", "-lockfile=readonly"], root)
     elif kind == "ios":
         run(["xcodebuild", "-resolvePackageDependencies", "-project", "kanopy-ios-app.xcodeproj", "-scheme", "KanopyAI"], root)
     elif kind == "powerline":
@@ -202,9 +206,12 @@ def verify(root, tests, changed, profile, findings=()):
     elif kind == "frontend":
         run(["npm", "test"], root)
         run(["npm", "run", "typecheck"], root)
-        if "frontend:embeds" in targets or any(p.startswith("packages/kanopy-embeds/") for p in changed):
+        embeds = ("frontend:embeds" in targets or any(
+            p.startswith(("packages/kanopy-embeds/", "src/embed/"))
+            or fnmatch.fnmatchcase(p, "src/components/viewers/ReconstructionViewer.*") for p in changed))
+        if embeds:
             run(["npm", "--prefix", "packages/kanopy-embeds", "run", "typecheck"], root)
-        if "frontend:embeds" in targets:
+        if embeds:
             run(["npm", "run", "test:embeds-e2e"], root)
             run(["npm", "--prefix", "packages/kanopy-embeds", "run", "pack:check"], root)
     elif kind == "infra":

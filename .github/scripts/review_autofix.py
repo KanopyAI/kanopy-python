@@ -165,7 +165,7 @@ def fingerprint(sha, findings):
 
 def claim_body(state, message):
     data = {k: v for k, v in state.items() if k != "comment_id"}
-    return PREFIX + json.dumps(data, separators=(",", ":")) + " -->\n" + message
+    return PREFIX + ci.safe_json(data) + " -->\n" + message
 
 
 def output(name, value):
@@ -244,7 +244,8 @@ def prepare(gh, args):
              "status": "running", "processed": []}
     context = {"pr": args.number, "title": pr["title"], "state": state, "project": PROFILE,
                "findings": findings}
-    prior = [c for c in history if c.get("sha") == sha and c.get("validation_failure")]
+    prior = [c for c in history if c.get("sha") == sha and c.get("fingerprint") == snapshot
+             and c.get("retryable_validation") and c.get("validation_failure")]
     if prior:
         context["previous_validation_failure"] = prior[-1]["validation_failure"]
     directory = Path(args.directory)
@@ -381,10 +382,10 @@ def package(args):
             # publishable artifact. Keep the candidate as it was before testing.
             artifact = directory / "artifact"
             artifact.mkdir(exist_ok=True)
-            failure = {"kind": "validation", "error": ci.redact(str(exc))[:1000],
-                       "log": ci.redact(project.log_tail(validation_log))[-5000:],
-                       "patch": ci.redact(before.decode("utf-8", errors="replace"))[:20_000]}
-            (artifact / "validation-failure.json").write_text(json.dumps(failure, ensure_ascii=False))
+            failure = ci.bounded_retry({"kind": "validation", "error": str(exc),
+                                        "log": project.log_tail(validation_log),
+                                        "patch": before.decode("utf-8", errors="replace")})
+            (artifact / "validation-failure.json").write_text(ci.safe_json(failure))
             raise
         git(root, "add", "--all")
         validate_patch(root)
@@ -419,6 +420,10 @@ def publish(gh, args):
                          and pr["head"]["ref"] == state["branch"])
             state.update(status="failed", retryable_validation=retryable,
                          validation_failure=failure)
+            # The fingerprint retains identity; the next attempt reconstructs
+            # findings. Drop redundant lists so the diagnostic comment is bounded.
+            for key in ("keys", "ci_keys", "urls"):
+                state.pop(key, None)
             next_step = ("The next poll will investigate this patch and validation output again."
                          if retryable else "Automatic fixing has stopped; manual follow-up is required.")
             gh.comment(args.number, claim_body(state,

@@ -28,8 +28,9 @@ The workflow never merges, deploys, applies infrastructure, or publishes release
 The fixer waits for checks to finish, then collects failure evidence only for the
 current PR head and the latest matching Actions jobs. The allowlisted workflow/job
 pairs are in `ci_workflows`; the fixer never executes commands taken from logs.
-Logs use GitHub's existing masking, common credential patterns are additionally
-redacted, and excerpts are bounded before they reach the model. Expired logs fall
+Logs are streamed with bounded memory to preserve their actual ending, with a
+30-second download deadline. GitHub masking and additional common-credential
+redaction apply before bounded excerpts reach the model. Expired or temporarily unavailable logs fall
 back to check summaries and annotations. Missing evidence may require manual work.
 
 It reruns the affected test shard or service, SDK Python version, frontend unit or
@@ -39,7 +40,9 @@ credential, dependency-policy, and runner problems that need protected changes
 are reported for manual follow-up. Full remote CI must pass after a fix is pushed.
 
 A failed verifier never publishes its patch. It saves a bounded diagnostic artifact,
-and the fresh publisher records that evidence in the bot state comment. On the
+and the fresh publisher records bounded evidence in the bot state comment.
+Diagnostic budgets include JSON/HTML escaping, so Unicode-heavy patches remain
+within GitHub comment limits. Only matching finding snapshots reuse that evidence. On the
 next poll, a fresh checkout receives the previous failure and candidate patch as
 context for a corrected attempt. This does not reset the three-attempt budget.
 

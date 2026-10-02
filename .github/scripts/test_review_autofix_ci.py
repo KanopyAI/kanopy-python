@@ -1,4 +1,4 @@
-import copy
+import io
 import json
 import os
 from pathlib import Path
@@ -161,6 +161,16 @@ class RetryTests(CIFixture, unittest.TestCase):
         output.assert_called_once_with("ready", "false")
         self.assertEqual(gh.writes, [])
 
+    def test_changed_findings_do_not_receive_an_unrelated_failed_patch(self):
+        gh = CIGitHub()
+        self.publish_failure(gh, self.state(gh))
+        gh.run["run_attempt"] = 2
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {
+                "HAS_OPENAI_KEY": "true", "HAS_PUSH_TOKEN": "true", "GITHUB_RUN_ID": "run2"}):
+            autofix.prepare(gh, SimpleNamespace(number=268, directory=directory, dry_run=False))
+            context = json.loads((Path(directory) / "context.json").read_text())
+        self.assertNotIn("previous_validation_failure", context)
+
     def test_setup_or_model_failure_does_not_repeat_the_same_snapshot(self):
         gh = CIGitHub()
         state = self.state(gh)
@@ -224,7 +234,7 @@ class DiagnosticTests(unittest.TestCase):
             path.write_text(json.dumps({"kind": "validation", "error": "failed", "log": token, "patch": "x" * 25_000}))
             result = ci.retry_details(path)
             self.assertNotIn(token, result["log"])
-            self.assertEqual(len(result["patch"]), 20_000)
+            self.assertLessEqual(len(ci.safe_json(result["patch"])), 16_000)
             path.write_text("x" * 40_001)
             with self.assertRaises(ValueError):
                 ci.retry_details(path)
@@ -238,7 +248,37 @@ class DiagnosticTests(unittest.TestCase):
         error = urllib.error.HTTPError("https://api.github.com/logs", 410, "Gone", {}, None)
         with patch.object(ci.urllib.request, "build_opener") as opener:
             opener.return_value.open.side_effect = error
-            self.assertIn("expired", ci.log_excerpt(CIGitHub(), 456))
+            self.assertIn("HTTP 410", ci.log_excerpt(CIGitHub(), 456))
+
+    def test_transient_log_error_preserves_other_evidence(self):
+        error = urllib.error.HTTPError("https://api.github.com/logs", 503, "Unavailable", {}, None)
+        with patch.object(ci.urllib.request, "build_opener") as opener:
+            opener.return_value.open.side_effect = error
+            self.assertIn("HTTP 503", ci.log_excerpt(CIGitHub(), 456))
+
+    def test_long_log_retains_the_actual_failure_at_its_end(self):
+        log = io.BytesIO(b"x" * 5_000_000 + b"\nERROR: unique final failure\n")
+        excerpt = ci.read_log_excerpt(log)
+        self.assertIn("unique final failure", excerpt)
+        self.assertLess(len(excerpt), 12_000)
+
+    def test_unicode_and_html_diagnostics_remain_bounded_and_round_trip(self):
+        failure = {"kind": "validation", "error": "failed", "log": "\u2603\n" * 10_000,
+                   "patch": "<!-- --> @codex \\" * 10_000}
+        bounded = ci.bounded_retry(failure)
+        encoded = ci.safe_json(bounded)
+        self.assertLess(len(encoded.encode()), 24_000)
+        self.assertNotIn("-->", encoded)
+        self.assertNotIn("@codex", encoded)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "failure.json"
+            path.write_text(encoded)
+            self.assertEqual(ci.retry_details(path), bounded)
+        state = {"status": "failed", "validation_failure": bounded}
+        body = autofix.claim_body(state, "Validation failed")
+        self.assertLess(len(body), 25_000)
+        restored = autofix.claims([{"id": 1, "user": {"login": "github-actions[bot]"}, "body": body}])[0]
+        self.assertEqual(restored["validation_failure"], bounded)
 
     def test_real_failed_process_output_is_available_for_retry(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -268,6 +308,20 @@ class VerificationTests(unittest.TestCase):
         commands = [c.args[0] for c in run.call_args_list]
         self.assertIn(["npm", "run", "test:embeds-e2e"], commands)
         self.assertIn(["npm", "--prefix", "packages/kanopy-embeds", "run", "pack:check"], commands)
+
+    def test_embeds_source_repair_runs_browser_checks_even_if_only_unit_ci_failed(self):
+        with patch.object(autofix.project, "run") as run:
+            autofix.project.verify(Path("/repo"), [], ["src/embed/handler.ts"], {"kind": "frontend"}, [{"kind": "ci", "target": "frontend:unit"}])
+        commands = [c.args[0] for c in run.call_args_list]
+        self.assertIn(["npm", "run", "test:embeds-e2e"], commands)
+        self.assertIn(["npm", "--prefix", "packages/kanopy-embeds", "run", "pack:check"], commands)
+
+    def test_terraform_syntax_failure_can_reach_the_agent_before_init(self):
+        def run(command, root):
+            if command[:2] == ["terraform", "init"]:
+                raise subprocess.CalledProcessError(1, command)
+        with patch.object(autofix.project, "run", side_effect=run):
+            autofix.project.setup(Path("/repo"), {"findings": [{"kind": "ci", "target": "infra:terraform"}]}, {"kind": "infra"})
 
     def test_python_ci_uses_failing_matrix_interpreter(self):
         with patch.object(autofix.project, "run") as run, patch.dict(os.environ, {"RUNNER_TEMP": "/tmp/runner"}):

@@ -1,14 +1,16 @@
 """Collect bounded failure evidence from trusted, current-head Actions checks."""
 
+from collections import deque
 import fnmatch
 import hashlib
 import json
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
-MAX_LOG_BYTES = 4_000_000
+LOG_TAIL_BYTES = 65_536
 MAX_FINDINGS = 8
 
 
@@ -36,21 +38,34 @@ def log_excerpt(gh, job_id):
         headers={"Authorization": "Bearer " + gh.token,
                  "Accept": "application/vnd.github+json"})
     try:
-        with urllib.request.build_opener(LogRedirect()).open(req, timeout=45) as response:
-            data = response.read(MAX_LOG_BYTES + 1)
+        with urllib.request.build_opener(LogRedirect()).open(req, timeout=15) as response:
+            return read_log_excerpt(response)
     except urllib.error.HTTPError as exc:
-        if exc.code in {404, 410}:
-            return "Job logs have expired or are unavailable; use the annotations and check summary."
-        raise
-    truncated = len(data) > MAX_LOG_BYTES
-    text = redact(data[:MAX_LOG_BYTES].decode("utf-8", errors="replace"))
-    # Preserve error lines as well as the tail, which can contain runner cleanup.
-    errors = "\n".join(line[:500] for line in text.splitlines()
-                       if re.search(r"(?i)(error:|##\[error\]|FAILED |AssertionError|Traceback)", line))
-    excerpt = ("Error lines:\n" + errors[-3500:] + "\nLog tail:\n" + text[-7500:])
-    if truncated:
-        excerpt += "\n[Download truncated at 4 MB; evidence may be incomplete.]"
-    return excerpt
+        return f"Job logs unavailable (HTTP {exc.code}); use the annotations and check summary."
+    except (urllib.error.URLError, TimeoutError):
+        return "Job logs temporarily unavailable; use the annotations and check summary."
+
+
+def read_log_excerpt(response):
+    # Stream the whole log with bounded memory, retaining its actual ending.
+    # A wall-clock bound prevents a slow log service from blocking preparation.
+    deadline = time.monotonic() + 30
+    tail, partial = b"", b""
+    errors = deque(maxlen=32)
+    while True:
+        if time.monotonic() > deadline:
+            raise TimeoutError("Log download exceeded 30 seconds")
+        chunk = response.read(LOG_TAIL_BYTES)
+        if not chunk:
+            break
+        tail = (tail + chunk)[-LOG_TAIL_BYTES:]
+        lines = (partial + chunk).split(b"\n")
+        partial = lines.pop()[-2000:]
+        for line in lines:
+            if re.search(rb"error:|##\[error\]|FAILED |AssertionError|Traceback", line, re.I):
+                errors.append(redact(line.decode("utf-8", errors="replace"))[:500])
+    text = redact(tail.decode("utf-8", errors="replace"))
+    return "Error lines:\n" + "\n".join(errors)[-3500:] + "\nLog tail:\n" + text[-7500:]
 
 
 def bounded_annotations(annotations):
@@ -122,12 +137,34 @@ def collect(gh, pr, checks, profile):
     return found
 
 
+def safe_json(data):
+    # Hidden bot-state JSON must not close its HTML comment or mention a bot.
+    return (json.dumps(data, separators=(",", ":"), ensure_ascii=True)
+            .replace("<", "\\u003c").replace(">", "\\u003e").replace("@", "\\u0040"))
+
+
+def fit_json_string(text, budget, *, tail=False):
+    low, high = 0, len(text)
+    while low < high:
+        middle = (low + high + 1) // 2
+        sample = text[-middle:] if tail else text[:middle]
+        if len(safe_json(sample).encode()) <= budget:
+            low = middle
+        else:
+            high = middle - 1
+    return (text[-low:] if tail else text[:low]) if low else ""
+
+
+def bounded_retry(data):
+    if not isinstance(data, dict) or data.get("kind") != "validation" or not all(isinstance(data.get(k), str) for k in ["error", "log", "patch"]):
+        raise ValueError("Invalid validation failure report")
+    return {"kind": "validation", "error": fit_json_string(redact(data["error"]), 1000),
+            "log": fit_json_string(redact(data["log"]), 6000, tail=True),
+            "patch": fit_json_string(redact(data["patch"]), 16_000)}
+
+
 def retry_details(path):
     """Validate bounded retry data before storing it in trusted bot state."""
     if path.stat().st_size > 40_000:
         raise ValueError("Oversized validation failure report")
-    data = json.loads(path.read_text())
-    if data.get("kind") != "validation" or not all(isinstance(data.get(k), str) for k in ["error", "log", "patch"]):
-        raise ValueError("Invalid validation failure report")
-    return {"kind": "validation", "error": redact(data["error"])[:1000],
-            "log": redact(data["log"])[-5000:], "patch": redact(data["patch"])[:20_000]}
+    return bounded_retry(json.loads(path.read_text()))
