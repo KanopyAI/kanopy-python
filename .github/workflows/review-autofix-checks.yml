@@ -22,3 +22,28 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 -m unittest discover -s .github/scripts -p 'test_review_autofix*.py' -v
+
+  process-boundary:
+    name: Codex process completion regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: openai/codex-action
+          ref: 86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+          path: codex-action
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '24'
+      - name: Reproduce inherited-stream hang and verify bounded recovery
+        # Fake Codex only: no API key or model calls. Linux also exercises the
+        # official privilege-drop path; macOS drops sudo earlier in the action.
+        run: python3 .github/scripts/test_review_autofix_runner.py --action-path codex-action drop-sudo
