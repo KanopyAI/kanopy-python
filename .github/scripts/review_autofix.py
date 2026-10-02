@@ -65,7 +65,7 @@ class GitHub:
             reviewThreads(first:100,after:$cursor) {
               pageInfo { hasNextPage endCursor }
               nodes { id isResolved isOutdated path line
-                comments(first:100) { pageInfo { hasNextPage } nodes {
+                comments(first:100) { pageInfo { hasNextPage endCursor } nodes {
                   id body url author { login } originalCommit { oid }
                 } }
               }
@@ -81,12 +81,36 @@ class GitHub:
                 raise RuntimeError("Unable to read review threads: " + str(result["errors"]))
             threads = result["data"]["repository"]["pullRequest"]["reviewThreads"]
             for thread in threads["nodes"]:
+                if not thread["isResolved"] and thread["comments"]["pageInfo"]["hasNextPage"]:
+                    self.complete_thread(thread)
                 finding = select_finding(thread)
                 if finding:
                     found.append(finding)
             if not threads["pageInfo"]["hasNextPage"]:
                 return found
             cursor = threads["pageInfo"]["endCursor"]
+
+
+    def complete_thread(self, thread):
+        query = """query($id:ID!,$cursor:String!) {
+          node(id:$id) { ... on PullRequestReviewThread {
+            comments(first:100,after:$cursor) { pageInfo { hasNextPage endCursor }
+              nodes { id body url author { login } originalCommit { oid } }
+            }
+          } }
+        }"""
+        comments = thread["comments"]
+        for _ in range(100):
+            if not comments["pageInfo"]["hasNextPage"]:
+                return
+            result = self.api("graphql", {"query": query, "variables": {
+                "id": thread["id"], "cursor": comments["pageInfo"]["endCursor"]}})
+            if result.get("errors"):
+                raise RuntimeError("Unable to read complete review discussion")
+            page = result["data"]["node"]["comments"]
+            comments["nodes"].extend(page["nodes"])
+            comments["pageInfo"] = page["pageInfo"]
+        raise RuntimeError("Review discussion pagination limit reached; manual triage required")
 
 
 def select_finding(thread):

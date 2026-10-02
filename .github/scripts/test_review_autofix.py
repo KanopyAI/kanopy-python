@@ -134,6 +134,22 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
         source["isResolved"] = True
         self.assertIsNone(autofix.select_finding(source))
 
+    def test_long_review_discussion_is_fully_collected(self):
+        source = thread()
+        source["comments"]["pageInfo"] = {"hasNextPage": True, "endCursor": "next"}
+        reply = {"id": "reply", "body": "Still fails", "author": {"login": "greptile-apps"}}
+        responses = [
+            {"data": {"repository": {"pullRequest": {"reviewThreads": {
+                "nodes": [source], "pageInfo": {"hasNextPage": False}}}}}},
+            {"data": {"node": {"comments": {"nodes": [reply], "pageInfo": {"hasNextPage": False}}}}},
+        ]
+        gh = autofix.GitHub(FakeGitHub.repo, "unused")
+        with patch.object(gh, "api", side_effect=responses) as api:
+            found = gh.findings(268)
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0]["discussion"][-1], reply)
+        self.assertEqual(api.call_count, 2)
+
     def test_new_thread_reply_reopens_a_processed_finding(self):
         source = thread()
         original = autofix.select_finding(source)
