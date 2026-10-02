@@ -40,6 +40,11 @@ separate Python environments under $RUNNER_TEMP/review-autofix-venvs/<service>/.
 If sandbox restrictions prevent simulator or other tests from running, explain
 that limit: the trusted verifier must still pass them before a fix is published.
 
+Keep test commands in the foreground with a finite timeout. Stop any child
+processes you start before returning the report. If a test hangs in the sandbox,
+record the test selector and symptoms for the trusted verifier; do not leave it
+running or repeatedly wait without a deadline. The agent has a 30-minute limit.
+
 Return the required JSON report with exactly one disposition per supplied key:
 fixed, not_valid, already_addressed, or needs_human. Cite concrete code or test
 evidence in each explanation. List affected existing test files matching test_paths

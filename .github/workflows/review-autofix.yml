@@ -73,6 +73,7 @@ jobs:
     env:
       PR_NUMBER: ${{ matrix.pr }}
       REVIEW_DIRECTORY: ${{ github.workspace }}/review-context-${{ matrix.pr }}
+      REVIEW_CONTROL_DIRECTORY: ${{ github.workspace }}/control/.github/scripts
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -111,10 +112,22 @@ jobs:
         run: |
           python3 control/.github/scripts/review_autofix.py setup \
             --directory "$REVIEW_DIRECTORY" --source "$GITHUB_WORKSPACE/source"
+      - name: Fetch pinned Codex action
+        if: steps.prepare.outputs.ready == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: openai/codex-action
+          ref: 86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1.12
+          path: codex-action
+          persist-credentials: false
+      - name: Install bounded Codex execution adapter
+        if: steps.prepare.outputs.ready == 'true'
+        run: python3 control/.github/scripts/review_autofix_runner.py patch-action "$GITHUB_WORKSPACE/codex-action"
       - name: Investigate and fix findings
         if: steps.prepare.outputs.ready == 'true'
-        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e # v1
+        uses: ./codex-action
         with:
+          codex-version: '0.160.0'
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           working-directory: ${{ github.workspace }}/source
           prompt-file: ${{ env.REVIEW_DIRECTORY }}/prompt.md
@@ -141,7 +154,7 @@ jobs:
   publish:
     needs: [discover, fix]
     if: >-
-      always() && needs.discover.result == 'success' &&
+      always() && !cancelled() && needs.discover.result == 'success' &&
       needs.discover.outputs.matrix != '[]' && !inputs.dry_run
     runs-on: ubuntu-latest
     timeout-minutes: 10

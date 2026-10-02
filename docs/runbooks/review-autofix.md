@@ -88,6 +88,35 @@ subscription does not fund this workflow.
   The old `auto-fix-review` label has no effect.
 - Full CI and reviews of the newly pushed commit are still required before merging.
 
+## Codex completion and recovery
+
+The pinned official Codex action runs through a trusted execution adapter. Its
+upstream `action.yml` checksum must match before the adapter changes the final
+launch command. Authentication, API proxy isolation, sandboxing, and privilege
+dropping remain in the official action. Codex CLI and its proxy are pinned to
+`0.160.0` for reproducibility.
+
+An upstream [inherited-output-stream hang](https://github.com/openai/codex-action/issues/169)
+can leave an Actions step running after Codex returns its final report. The
+adapter puts the official wrapper and its descendants behind private log files,
+streams progress to Actions, and emits a heartbeat every 30 seconds. Children
+cannot keep the runner's log transport open. Cleanup stops the private process
+group and tracked descendants; Linux also adopts orphaned descendants.
+
+If a valid report for the current findings is stable for 60 seconds but the
+wrapper has not exited, the adapter stops its processes before proceeding to
+independent validation. A missing or invalid report fails after 30 minutes.
+An explicit cancellation or nonzero process exit is never converted to success.
+The publisher does not run on cancelled workflow runs. The existing 90-minute
+job limit also covers setup and independent validation.
+
+Every supervised attempt saves `agent-run.json`, a bounded redacted log tail,
+the available `agent-report.json`, and a candidate patch (up to 2 MB) in the run's
+`review-autofix-<PR>` artifact. These are diagnostic files, not a publishable
+patch. Only independent policy checks and successful validation produce
+`change.patch` and `report.json`, which the fresh publisher can consume. A hard
+agent timeout stays a failed attempt under the existing three-attempt budget.
+
 ## Controller tests
 
 ```bash
@@ -102,3 +131,9 @@ only on the fresh publisher runner.
 These tests cover eligibility, attempt limits, publication checks, test failure
 handling, and project-specific validation commands. They do not substitute for
 a live Codex run with the repository's configured credentials.
+
+The process regression also invokes the exact pinned upstream Node wrapper with
+a fake Codex executable. It first proves that an orphan holding stdout/stderr
+hangs the caller, then verifies that the adapter preserves the final report,
+forwards logs, and stops the child. Hosted Linux tests exercise `drop-sudo`;
+the iOS job verifies the process boundary on macOS. No model call is needed.
