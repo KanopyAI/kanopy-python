@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/scripts/review_autofix*.py'
-      - '.github/scripts/test_review_autofix.py'
+      - '.github/scripts/test_review_autofix*.py'
       - '.github/review-autofix.json'
       - '.github/prompts/review-autofix*'
       - '.github/workflows/review-autofix*'
@@ -21,4 +21,4 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - run: python3 -m unittest discover -s .github/scripts -p 'test_review_autofix.py' -v
+      - run: python3 -m unittest discover -s .github/scripts -p 'test_review_autofix*.py' -v

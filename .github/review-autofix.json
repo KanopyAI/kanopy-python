@@ -10,5 +10,16 @@
     "tests/test*.py",
     "tests/*/test*.py"
   ],
-  "validation_description": "Run selected pytest modules and every changed regression module, then Ruff checks and formatting validation for src/tests/scripts. Never publish a package."
+  "validation_description": "Run selected pytest modules and every changed regression module, then Ruff checks and formatting validation for src/tests/scripts. Never publish a package.",
+  "ci_workflows": {
+    ".github/workflows/ci.yml": {
+      "test (3.10)": "python:3.10",
+      "test (3.11)": "python:3.11",
+      "test (3.12)": "python:3.12",
+      "test (3.13)": "python:3.13",
+      "test (3.14)": "python:3.14",
+      "quality": "python:quality",
+      "package": "python:package"
+    }
+  }
 }
