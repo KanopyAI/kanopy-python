@@ -90,6 +90,18 @@ subscription does not fund this workflow.
 
 ## Codex completion and recovery
 
+On disposable GitHub-hosted Linux runners, setup copies the runner's existing
+upstream DNS configuration to `/etc/resolv.conf` and selects `files dns` for
+native hostname lookups before Codex starts. This avoids the local DNS daemon:
+the pinned action's [drop-sudo socket restriction bug](https://github.com/openai/codex-action/issues/160)
+can prevent `systemd-resolved` from restarting, causing artifact uploads and
+runner communication to fail with `EAI_AGAIN`. No public DNS service is introduced;
+setup fails if the runner has no valid upstream servers. Sudo removal, socket
+restrictions, sandboxing, and API-key isolation remain enabled. This is a DNS
+workaround for the pinned upstream action, not a repair of its system IPC changes.
+The hosted regression stops `systemd-resolved`, executes the actual pinned
+privilege-drop path, and uploads an artifact with sudo still disabled.
+
 The pinned official Codex action runs through a trusted execution adapter. Its
 upstream `action.yml` checksum must match before the adapter changes the final
 launch command. Authentication, API proxy isolation, sandboxing, and privilege
