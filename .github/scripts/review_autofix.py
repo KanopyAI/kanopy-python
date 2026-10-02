@@ -13,6 +13,7 @@ import urllib.request
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import review_autofix_project as project
+import review_autofix_ci as ci
 
 PROFILE = json.loads((Path(__file__).resolve().parents[1] / "review-autofix.json").read_text())
 
@@ -211,19 +212,11 @@ def prepare(gh, args):
     if any(c["status"] == "needs_human" for c in history):
         summary(f"PR #{args.number}: paused for a human decision; continue manually.")
         return
-    findings = pending_findings(gh.findings(args.number), history)
     sha = pr["head"]["sha"]
-    snapshot = fingerprint(sha, findings)
-    if not findings:
-        summary(f"PR #{args.number}: no new trusted inline findings. This is not a merge approval.")
-        return
-    if any(c["fingerprint"] == snapshot for c in history):
-        summary(f"PR #{args.number}: this head and finding set already attempted; skipping.")
-        return
     if len(history) >= MAX_ATTEMPTS:
         summary(f"PR #{args.number}: three-attempt limit reached; manual follow-up required.")
         return
-    checks = gh.get(f"commits/{sha}/check-runs?per_page=100")
+    checks = gh.get(f"commits/{sha}/check-runs?per_page=100&filter=latest")
     if checks["total_count"] > 100:
         raise RuntimeError("More than 100 checks; cannot establish completion")
     if any(c["status"] != "completed" for c in checks["check_runs"]):
@@ -233,13 +226,27 @@ def prepare(gh, args):
     if statuses["total_count"] and statuses["state"] == "pending":
         summary(f"PR #{args.number}: waiting for commit statuses.")
         return
+    findings = pending_findings([
+        *gh.findings(args.number), *ci.collect(gh, pr, checks["check_runs"], PROFILE)], history)
+    snapshot = fingerprint(sha, findings)
+    if not findings:
+        summary(f"PR #{args.number}: no new reviewer findings or supported CI failures. This is not a merge approval.")
+        return
+    matches = [c for c in history if c["fingerprint"] == snapshot]
+    if matches and not (matches[-1]["status"] == "failed" and matches[-1].get("retryable_validation")):
+        summary(f"PR #{args.number}: this head and finding set already attempted; skipping.")
+        return
     state = {"run_id": os.environ.get("GITHUB_RUN_ID", "preview"),
              "attempt": len(history) + 1, "sha": sha, "branch": pr["head"]["ref"],
              "fingerprint": snapshot, "keys": [f["key"] for f in findings],
              "urls": {f["key"]: f["url"] for f in findings},
+             "ci_keys": [f["key"] for f in findings if f.get("kind") == "ci"],
              "status": "running", "processed": []}
     context = {"pr": args.number, "title": pr["title"], "state": state, "project": PROFILE,
                "findings": findings}
+    prior = [c for c in history if c.get("sha") == sha and c.get("validation_failure")]
+    if prior:
+        context["previous_validation_failure"] = prior[-1]["validation_failure"]
     directory = Path(args.directory)
     directory.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(context, indent=2)
@@ -272,6 +279,8 @@ def prepare(gh, args):
 
 
 def validate_report(report, keys):
+    if not isinstance(report.get("tests"), list) or not all(isinstance(t, str) for t in report["tests"]):
+        raise ValueError("Report must include a list of test selectors")
     results = report["findings"]
     if (len(results) != len(keys) or {f["key"] for f in results} != set(keys)
             or any(f["status"] not in DISPOSITIONS or not f["explanation"].strip() for f in results)):
@@ -279,6 +288,13 @@ def validate_report(report, keys):
     if not isinstance(report["summary"], str) or len(json.dumps(report)) > 40_000:
         raise ValueError("Invalid or oversized report")
     return any(f["status"] == "fixed" for f in results)
+
+
+def requires_regression(report, state):
+    # CI formatting/build fixes can be verified by rerunning the failing check.
+    # Reviewer-reported behavior bugs still require a changed regression test.
+    return any(f["status"] == "fixed" and f["key"] not in state.get("ci_keys", [])
+               for f in report["findings"])
 
 
 def allowed_path(path):
@@ -314,8 +330,8 @@ def validate_patch(root):
     return paths
 
 
-def test_arguments(root, tests):
-    if not isinstance(tests, list) or not tests:
+def test_arguments(root, tests, *, allow_empty=False):
+    if not isinstance(tests, list) or (not tests and not allow_empty):
         raise ValueError("Every fix requires affected regression tests")
     result = []
     for node in tests:
@@ -349,13 +365,27 @@ def package(args):
         raise ValueError("Patch must correspond to at least one confirmed fix")
     if fixed:
         changed_tests = [p for p in paths if is_test_file(p) and (root / p).is_file()]
-        if not changed_tests:
-            raise ValueError("Fixes must include a regression test")
+        regression = requires_regression(report, context["state"])
+        if regression and not changed_tests:
+            raise ValueError("Reviewer fixes must include a regression test")
         # Always run each changed regression module, even if the agent omitted it.
         report["tests"] = list(dict.fromkeys([*report["tests"], *changed_tests]))
-        tests = test_arguments(root, report["tests"])
+        tests = test_arguments(root, report["tests"], allow_empty=not regression)
         before = git(root, "diff", "--cached", "--binary")
-        project.verify(root, tests, paths, PROFILE)
+        validation_log = directory / "validation.log"
+        try:
+            with project.capture_validation(validation_log):
+                project.verify(root, tests, paths, PROFILE, findings=context.get("findings", []))
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            # A failed patch is evidence for another bounded attempt, never a
+            # publishable artifact. Keep the candidate as it was before testing.
+            artifact = directory / "artifact"
+            artifact.mkdir(exist_ok=True)
+            failure = {"kind": "validation", "error": ci.redact(str(exc))[:1000],
+                       "log": ci.redact(project.log_tail(validation_log))[-5000:],
+                       "patch": ci.redact(before.decode("utf-8", errors="replace"))[:20_000]}
+            (artifact / "validation-failure.json").write_text(json.dumps(failure, ensure_ascii=False))
+            raise
         git(root, "add", "--all")
         validate_patch(root)
         if (git(root, "diff", "--cached", "--binary") != before
@@ -379,6 +409,22 @@ def publish(gh, args):
     link = f"https://github.com/{gh.repo}/actions/runs/{run_id}"
     try:
         directory = Path(args.directory)
+        failure_file = directory / "validation-failure.json"
+        if failure_file.exists():
+            failure = ci.retry_details(failure_file)
+            pr = gh.get(f"pulls/{args.number}")
+            retryable = (state["attempt"] < MAX_ATTEMPTS
+                         and eligible(pr, gh.repo, gh.get("")["default_branch"])
+                         and pr["head"]["sha"] == state["sha"]
+                         and pr["head"]["ref"] == state["branch"])
+            state.update(status="failed", retryable_validation=retryable,
+                         validation_failure=failure)
+            next_step = ("The next poll will investigate this patch and validation output again."
+                         if retryable else "Automatic fixing has stopped; manual follow-up is required.")
+            gh.comment(args.number, claim_body(state,
+                f"Review autofix attempt {state['attempt']}/3 failed validation; no patch was pushed. "
+                f"[Inspect run]({link}). {next_step}\n\n" + failure["error"].replace("@", "＠")), state["comment_id"])
+            return
         report = json.loads((directory / "report.json").read_text())
         fixed = validate_report(report, state["keys"])
         patch = (directory / "change.patch").read_bytes()
@@ -400,11 +446,11 @@ def publish(gh, args):
             git(root, "checkout", "--detach", "FETCH_HEAD")
             git(root, "apply", "--index", str((directory / "change.patch").resolve()))
             paths = validate_patch(root)
-            if not any(is_test_file(p) and (root / p).is_file() for p in paths):
+            if requires_regression(report, state) and not any(is_test_file(p) and (root / p).is_file() for p in paths):
                 raise ValueError("Missing regression test")
             git(root, "-c", "user.name=github-actions[bot]", "-c",
                 "user.email=41898282+github-actions[bot]@users.noreply.github.com", "commit", "-m",
-                f"fix: address automated review findings (round {state['attempt']})")
+                f"fix: address review and CI findings (round {state['attempt']})")
             # Recheck immediately before the network write after fetching/applying.
             latest = gh.get(f"pulls/{args.number}")
             if (not eligible(latest, gh.repo, gh.get("")["default_branch"])
@@ -423,7 +469,7 @@ def publish(gh, args):
             message += f"- [Finding]({url}) **{item['status']}**: {item['explanation'].replace('@', '＠')}\n"
         if fixed:
             message += f"\nPushed `{state['pushed_sha']}` after the selected tests passed. CI and fresh reviews are still required.\n"
-            message += "Tests: " + ", ".join(f"`{t}`" for t in report["tests"]) + ".\n"
+            message += "Validation: " + (", ".join(f"`{t}`" for t in report["tests"]) or "trusted CI checks for the failing jobs") + ".\n"
         if state["attempt"] == MAX_ATTEMPTS or state["status"] == "needs_human":
             message += "\nAutomatic fixing has stopped. Manual follow-up is required for any remaining findings.\n"
         if fixed:

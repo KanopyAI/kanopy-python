@@ -455,7 +455,9 @@ class PatchTests(BackendPolicyFixture, unittest.TestCase):
         with patch.object(autofix.subprocess, "run", side_effect=run):
             with self.assertRaises(subprocess.CalledProcessError):
                 autofix.package(args)
-        self.assertFalse((directory / "artifact").exists())
+        self.assertTrue((directory / "artifact/validation-failure.json").exists())
+        self.assertFalse((directory / "artifact/change.patch").exists())
+        self.assertFalse((directory / "artifact/report.json").exists())
 
     def test_success_packages_verified_diff_and_includes_changed_test_modules(self):
         args, directory = self.setup_package()
