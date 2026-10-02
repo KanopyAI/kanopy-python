@@ -53,6 +53,11 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then args+=(--number "$PR_NUMBER"); fi
           if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
           python3 .github/scripts/review_autofix.py scan "${args[@]}"
+      - name: Verify publisher credential before starting model work
+        if: steps.scan.outputs.matrix != '[]' && !inputs.dry_run
+        env:
+          REVIEW_FIXER_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN }}
+        run: python3 .github/scripts/review_autofix_access.py
 
   fix:
     needs: discover

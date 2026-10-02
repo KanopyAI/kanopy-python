@@ -67,6 +67,14 @@ subscription does not fund this workflow.
 
 ## Stopping and results
 
+Live runs authenticate the saved publisher token against GitHub's read and write
+Git advertisement endpoints before reserving a model attempt. These are GET
+requests and do not change refs. A rejected token stops discovery with an explicit
+error instead of spending a model attempt and losing publication later. For a
+fine-grained token, select this repository and grant Contents and Pull requests
+read/write; verify organization approval/SSO and expiry. Publisher Git commands
+clear inherited credential helpers before selecting the saved token.
+
 - Add `auto-fix-review-skip` to a PR to prevent new attempts and publication of an
   in-progress fix when observed by the publisher. A label change cannot be atomic
   with a Git push; cancel the Actions run as well to stop an active model call.
