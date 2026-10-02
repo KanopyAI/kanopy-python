@@ -167,7 +167,7 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
         state = {"fingerprint": "x", "status": "completed", "processed": ["key"]}
         comment = {"id": 5, "user": {"login": "human"},
                    "body": autofix.claim_body(state, "Done")}
-        self.assertEqual(autofix.claims([comment]), [])
+        self.assertEqual(autofix.claims([comment, dict(comment, user=None)]), [])
         comment["user"]["login"] = "github-actions[bot]"
         self.assertEqual(autofix.claims([comment])[0]["processed"], ["key"])
 
@@ -274,7 +274,8 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
     def test_protected_paths(self):
         for path in [".github/workflows/deploy.yml", "app/../../.env", "/app/example.py",
                      "app/AGENTS.md", "tests/quarantine.txt", "tests/conftest.py",
-                     "app/.codex/config.toml", "requirements.txt", "app/x\nfile.py"]:
+                     "app/.codex/config.toml", "requirements.txt", "app/x\nfile.py",
+                     "app/Dockerfile.base.py311", "app/docker-compose.override.yml"]:
             self.assertFalse(autofix.allowed_path(path), path)
         for path in ["app/main.py", "worker/task.py", "tests/test_fix.py", "docs/feature.md"]:
             self.assertTrue(autofix.allowed_path(path), path)

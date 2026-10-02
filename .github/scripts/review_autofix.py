@@ -117,7 +117,7 @@ def eligible(pr, repo, default_branch):
 def claims(comments):
     result = []
     for comment in comments:
-        if comment["user"]["login"] != "github-actions[bot]":
+        if (comment.get("user") or {}).get("login") != "github-actions[bot]":
             continue
         line = comment["body"].splitlines()[0] if comment["body"] else ""
         if not line.startswith(PREFIX) or not line.endswith(" -->"):
@@ -264,6 +264,8 @@ def allowed_path(path):
             and not any(p in {"..", ".git", ".github", ".codex"} for p in parts)
             and parts[-1] not in {"AGENTS.md", "conftest.py", "quarantine.txt", "package.json", "package-lock.json",
                                  "requirements.txt", "pyproject.toml", "setup.cfg", "Dockerfile", ".terraform.lock.hcl"}
+            and not any(fnmatch.fnmatchcase(parts[-1], pattern) for pattern in
+                        {"Dockerfile*", "*.Dockerfile", "docker-compose*", "compose.yaml", "compose.yml"})
             and not any(ord(c) < 32 for c in path))
 
 
