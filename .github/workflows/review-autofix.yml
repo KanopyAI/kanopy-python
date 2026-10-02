@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'PR number (required for preview; blank processes all eligible PRs)'
+        description: 'PR number (blank processes all eligible PRs)'
         type: string
         default: ''
       dry_run:

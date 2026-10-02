@@ -29,7 +29,7 @@ The workflow never merges, deploys, applies infrastructure, or publishes release
    repository. Keep both values out of chat and version control.
 3. Optionally set `REVIEW_AUTOFIX_MODEL` to an API model available to the OpenAI
    project; otherwise the Codex Action uses its default.
-4. Run **Actions → Review autofix → Run workflow** with a PR number and
+4. Run **Actions → Review autofix → Run workflow** with an optional PR number and
    **dry_run** checked. Preview mode collects findings without model calls or writes.
 5. Set repository Actions variable `REVIEW_AUTOFIX_ENABLED=true`. Existing and
    future eligible PRs are included automatically. Schedules are best-effort;
@@ -42,13 +42,15 @@ subscription does not fund this workflow.
 ## Stopping and results
 
 - Add `auto-fix-review-skip` to a PR to prevent new attempts and publication of an
-  in-progress fix. Cancel the Actions run as well to stop an active model call.
+  in-progress fix when observed by the publisher. A label change cannot be atomic
+  with a Git push; cancel the Actions run as well to stop an active model call.
 - Set `REVIEW_AUTOFIX_ENABLED=false` to stop new automatic runs repository-wide.
 - At most three attempts per PR, including failures. A human-decision finding
   pauses further attempts. Changing labels does not reset the budget.
 - Bot-authored PR comments preserve attempt history, dispositions, validation,
   and links to the run. Keep those comments. No review thread is auto-resolved.
-- Duplicate finding snapshots are skipped. A failed snapshot is not automatically
+- Cancelled or abandoned attempts are reconciled on the next poll; inspect the
+  linked run before continuing manually. Duplicate finding snapshots are skipped. A failed snapshot is not automatically
   retried. The full lifecycle is serialized, with up to two different PRs fixed
   in parallel. Each fixer job has a 90-minute timeout.
 - Only inline review threads are inputs; summary-only or external findings need
@@ -60,6 +62,11 @@ subscription does not fund this workflow.
 ```bash
 python3 -m unittest discover -s .github/scripts -p 'test_review_autofix.py' -v
 ```
+
+As in the repository's existing CI, dependency installation and test code from
+same-repository PRs are trusted to execute on the runner. Fork PRs are excluded.
+The agent is sandboxed to its source checkout, and push credentials are present
+only on the fresh publisher runner.
 
 These tests cover eligibility, attempt limits, publication checks, test failure
 handling, and project-specific validation commands. They do not substitute for

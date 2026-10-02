@@ -99,7 +99,9 @@ def select_finding(thread):
         return None
     if thread["comments"]["pageInfo"]["hasNextPage"]:
         raise RuntimeError("Review thread exceeds 100 comments; manual triage required")
-    digest = hashlib.sha256((root["id"] + root["body"]).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps(
+        [(comment["id"], comment["body"]) for comment in comments],
+        separators=(",", ":")).encode()).hexdigest()
     return {"key": digest, "thread": thread["id"], "path": thread["path"],
             "line": thread["line"], "outdated": thread["isOutdated"],
             "reviewer": login, "url": root["url"], "discussion": comments}
@@ -159,8 +161,6 @@ def scan(gh, args):
     prs = [gh.get(f"pulls/{args.number}")] if args.number else gh.pages("pulls?state=open")
     numbers = [pr["number"] for pr in prs
                if eligible(pr, gh.repo, default_branch)]
-    if args.dry_run and not args.number:
-        raise ValueError("A preview requires a PR number")
     output("matrix", json.dumps(numbers))
     summary(f"Eligible PRs: {numbers}")
 
@@ -172,6 +172,18 @@ def prepare(gh, args):
         summary(f"PR #{args.number}: not eligible (skip label, draft, fork, or protected branch).")
         return
     history = claims(gh.pages(f"issues/{args.number}/comments"))
+    for previous in history:
+        if previous["status"] != "running" or previous["run_id"] == os.environ.get("GITHUB_RUN_ID"):
+            continue
+        run = gh.get(f"actions/runs/{previous['run_id']}")
+        if run["status"] == "completed":
+            previous["status"] = "failed"
+            if not args.dry_run:
+                link = f"https://github.com/{gh.repo}/actions/runs/{previous['run_id']}"
+                gh.comment(args.number, claim_body(previous,
+                    f"Review autofix stopped when its run ended ({run.get('conclusion')}). "
+                    f"[Inspect run]({link}) before continuing manually; a commit may already have been pushed. "
+                    "This attempt remains counted and the same snapshot is not retried."), previous["comment_id"])
     if any(c["status"] == "needs_human" for c in history):
         summary(f"PR #{args.number}: paused for a human decision; continue manually.")
         return
@@ -208,7 +220,14 @@ def prepare(gh, args):
     directory.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(context, indent=2)
     if len(serialized) > 200_000:
-        raise RuntimeError("Review context too large; manual triage required")
+        message = (f"PR #{args.number}: review context exceeds 200,000 characters. "
+                   "Automatic fixing is paused; manually triage the review threads.")
+        summary(message)
+        if not args.dry_run:
+            # Keep the pause comment bounded even when there are many findings.
+            state.update(status="needs_human", keys=[], urls={})
+            gh.comment(args.number, claim_body(state, message))
+        return
     (directory / "context.json").write_text(serialized)
     summary(f"PR #{args.number}: {len(findings)} findings, attempt {state['attempt']}/3, head {sha[:12]}.")
     if args.dry_run:
@@ -257,7 +276,7 @@ def git(root, *args, env=None):
 
 
 def validate_patch(root):
-    paths = git(root, "diff", "--cached", "--name-only", "-z").decode().split("\0")[:-1]
+    paths = git(root, "diff", "--cached", "--no-renames", "--name-only", "-z").decode().split("\0")[:-1]
     if any(not allowed_path(path) for path in paths):
         raise ValueError("Patch touches a protected or unsupported path")
     for entry in git(root, "diff", "--cached", "--raw", "--no-renames", "-z").split(b"\0"):
@@ -360,6 +379,11 @@ def publish(gh, args):
             git(root, "-c", "user.name=github-actions[bot]", "-c",
                 "user.email=41898282+github-actions[bot]@users.noreply.github.com", "commit", "-m",
                 f"fix: address automated review findings (round {state['attempt']})")
+            # Recheck immediately before the network write after fetching/applying.
+            latest = gh.get(f"pulls/{args.number}")
+            if (not eligible(latest, gh.repo, gh.get("")["default_branch"])
+                    or latest["head"]["sha"] != state["sha"]):
+                raise ValueError("PR changed or was opted out before push")
             # Normal fast-forward push: a concurrent human push is rejected, never overwritten.
             git(root, "push", "origin", f"HEAD:refs/heads/{state['branch']}", env=env)
             state["pushed_sha"] = git(root, "rev-parse", "HEAD").decode().strip()
@@ -376,11 +400,24 @@ def publish(gh, args):
             message += "Tests: " + ", ".join(f"`{t}`" for t in report["tests"]) + ".\n"
         if state["attempt"] == MAX_ATTEMPTS or state["status"] == "needs_human":
             message += "\nAutomatic fixing has stopped. Manual follow-up is required for any remaining findings.\n"
-        gh.comment(args.number, claim_body(state, message), state["comment_id"])
         if fixed:
-            GitHub(gh.repo, os.environ["REVIEW_FIXER_TOKEN"]).comment(args.number, "@codex review")
+            try:
+                GitHub(gh.repo, os.environ["REVIEW_FIXER_TOKEN"]).comment(args.number, "@codex review")
+            except Exception as exc:
+                message += (f"\nThe fix was pushed, but requesting Codex review failed ({type(exc).__name__}). "
+                            "Request review manually before merging.\n")
+                summary("Fix published; fresh Codex review must be requested manually.")
+        gh.comment(args.number, claim_body(state, message), state["comment_id"])
     except Exception as exc:
         # Report from a fresh publisher runner, including agent/test failures with no artifact.
+        if state.get("pushed_sha"):
+            state["status"] = "needs_human"
+            message = (f"Fix was pushed as `{state['pushed_sha']}`, but reporting failed. "
+                       f"[Inspect run]({link}) and confirm review/CI before continuing manually.\n\n"
+                       f"{type(exc).__name__}: {exc}")
+            summary(message)
+            gh.comment(args.number, claim_body(state, message), state["comment_id"])
+            return
         state["status"] = "failed"
         gh.comment(args.number, claim_body(state,
             f"Review autofix stopped. [Inspect run]({link}).\n\n{type(exc).__name__}: {exc}\n\n"

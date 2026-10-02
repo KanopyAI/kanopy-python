@@ -134,6 +134,27 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
         source["isResolved"] = True
         self.assertIsNone(autofix.select_finding(source))
 
+    def test_new_thread_reply_reopens_a_processed_finding(self):
+        source = thread()
+        original = autofix.select_finding(source)
+        source["comments"]["nodes"].append({"id": "reply1", "body": "This still fails", "author": {"login": "greptile-apps"}})
+        revised = autofix.select_finding(source)
+        self.assertNotEqual(original["key"], revised["key"])
+        self.assertEqual(autofix.pending_findings([revised], [{"processed": [original["key"]]}]), [revised])
+
+    def test_cancelled_run_claim_is_reconciled_without_retry(self):
+        gh = FakeGitHub()
+        old = {"status": "running", "run_id": "old-run", "fingerprint": autofix.fingerprint(gh.pr["head"]["sha"], gh.found)}
+        gh.comments = [{"id": 123, "user": {"login": "github-actions[bot]"}, "body": autofix.claim_body(old, "Running")}]
+        original_get = gh.get
+        def get(path):
+            return {"status": "completed", "conclusion": "cancelled"} if path == "actions/runs/old-run" else original_get(path)
+        with tempfile.TemporaryDirectory() as directory, patch.object(gh, "get", side_effect=get):
+            autofix.prepare(gh, SimpleNamespace(number=268, dry_run=False, directory=directory))
+        self.assertEqual(len(gh.writes), 1)
+        self.assertIn('"status":"failed"', gh.writes[0])
+        self.assertIn("cancelled", gh.writes[0])
+
     def test_bot_suffix_and_truncated_discussion(self):
         source = thread()
         source["comments"]["nodes"][0]["author"]["login"] = "sentry[bot]"
@@ -167,6 +188,27 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
             self.assertEqual(len(data["findings"]), 1)
             self.assertEqual(gh.writes, [])
             self.assertFalse((Path(directory) / "prompt.md").exists())
+
+    def test_oversized_context_pauses_once_with_a_pr_comment(self):
+        gh = FakeGitHub()
+        gh.found[0]["discussion"][0]["body"] = "x" * 200_001
+        with tempfile.TemporaryDirectory() as directory, patch.object(autofix, "output") as output:
+            args = SimpleNamespace(number=268, dry_run=False, directory=directory)
+            autofix.prepare(gh, args)
+            self.assertEqual(len(gh.writes), 1)
+            self.assertIn("manually triage", gh.writes[0])
+            self.assertEqual(output.call_args.args, ("ready", "false"))
+            gh.comments = [{"id": 123, "user": {"login": "github-actions[bot]"}, "body": gh.writes[0]}]
+            self.assertEqual(autofix.claims(gh.comments)[0]["status"], "needs_human")
+            autofix.prepare(gh, args)
+            self.assertEqual(len(gh.writes), 1)
+
+    def test_oversized_context_preview_does_not_write(self):
+        gh = FakeGitHub()
+        gh.found[0]["discussion"][0]["body"] = "x" * 200_001
+        with tempfile.TemporaryDirectory() as directory:
+            autofix.prepare(gh, SimpleNamespace(number=268, dry_run=True, directory=directory))
+        self.assertEqual(gh.writes, [])
 
     def test_skip_label_prevents_live_and_preview_attempts(self):
         gh = FakeGitHub()
@@ -273,6 +315,67 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
             self.assertIn('"status":"failed"', gh.writes[-1])
 
 
+    def exercise_publication(self, *, opt_out=False, review_error=False, reporting_error=False):
+        gh = FakeGitHub()
+        state = {"run_id": "run1", "status": "running", "keys": ["key1"],
+                 "urls": {"key1": "https://github.com/finding"}, "sha": "a" * 40,
+                 "branch": gh.pr["head"]["ref"], "attempt": 1}
+        gh.comments = [{"id": 3, "user": {"login": "github-actions[bot]"},
+                        "body": autofix.claim_body(state, "Running")}]
+        pushed = []
+        def git(root, *args, **kwargs):
+            if args[0] == "fetch" and opt_out:
+                gh.pr["labels"] = [{"name": autofix.SKIP_LABEL}]
+            if args[0] == "push":
+                pushed.append(args)
+            return b"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n" if args[0] == "rev-parse" else b""
+        original_comment = gh.comment
+        comment_calls = []
+        def comment(*args, **kwargs):
+            comment_calls.append(args)
+            if reporting_error and len(comment_calls) == 1:
+                raise RuntimeError("temporary comment failure")
+            return original_comment(*args, **kwargs)
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {
+                "GITHUB_RUN_ID": "run1", "REVIEW_FIXER_TOKEN": "fake-token"}):
+            root = Path(directory)
+            (root / "tests").mkdir()
+            (root / "tests/test_example.py").touch()
+            (root / "report.json").write_text(json.dumps(report()))
+            (root / "change.patch").write_text("patch")
+            with patch.object(autofix, "git", side_effect=git), \
+                    patch.object(autofix, "validate_patch", return_value=["tests/test_example.py"]), \
+                    patch.object(autofix.GitHub, "comment", side_effect=RuntimeError("review unavailable") if review_error else None) as review, \
+                    patch.object(gh, "comment", side_effect=comment):
+                args = SimpleNamespace(number=268, directory=directory, source=directory)
+                if opt_out:
+                    with self.assertRaisesRegex(ValueError, "opted out before push"):
+                        autofix.publish(gh, args)
+                    review.assert_not_called()
+                else:
+                    autofix.publish(gh, args)
+                    review.assert_called_once()
+        return gh.writes, pushed
+
+    def test_late_opt_out_stops_push(self):
+        writes, pushed = self.exercise_publication(opt_out=True)
+        self.assertEqual(pushed, [])
+        self.assertIn('"status":"failed"', writes[-1])
+
+    def test_review_request_failure_preserves_successful_publication(self):
+        writes, pushed = self.exercise_publication(review_error=True)
+        self.assertEqual(len(pushed), 1)
+        self.assertIn('"status":"completed"', writes[-1])
+        self.assertIn("Request review manually", writes[-1])
+
+    def test_reporting_failure_records_successful_push_for_followup(self):
+        writes, pushed = self.exercise_publication(reporting_error=True)
+        self.assertEqual(len(pushed), 1)
+        self.assertIn('"status":"needs_human"', writes[-1])
+        self.assertIn("Fix was pushed", writes[-1])
+
+
+
 class PatchTests(BackendPolicyFixture, unittest.TestCase):
     def setUp(self):
         super().setUp()
@@ -298,6 +401,17 @@ class PatchTests(BackendPolicyFixture, unittest.TestCase):
 
     def test_rename_outside_allowed_paths_is_rejected(self):
         (self.root / "app/example.py").rename(self.root / "danger.py")
+        autofix.git(self.root, "add", "--all")
+        with self.assertRaisesRegex(ValueError, "protected"):
+            autofix.validate_patch(self.root)
+
+    def test_rename_from_protected_path_is_rejected(self):
+        protected = self.root / ".github/workflows/deploy.yml"
+        protected.parent.mkdir(parents=True)
+        protected.write_text("name: deployment\n")
+        autofix.git(self.root, "add", ".")
+        autofix.git(self.root, "commit", "-qm", "protected workflow")
+        protected.rename(self.root / "app/deploy.yml")
         autofix.git(self.root, "add", "--all")
         with self.assertRaisesRegex(ValueError, "protected"):
             autofix.validate_patch(self.root)
@@ -397,11 +511,18 @@ class ProjectPolicyTests(unittest.TestCase):
             root = Path(directory)
             (root / "main.tf").touch()
             with patch.object(autofix.project, "run") as run:
-                autofix.project.verify(root, ["tests/test_policy.py"], ["main.tf"], {"kind": "infra"})
+                autofix.project.verify(root, ["tests/nested/test_policy.py"], ["main.tf"], {"kind": "infra"})
         commands = [call.args[0] for call in run.call_args_list]
         self.assertIn(["terraform", "init", "-backend=false", "-input=false", "-lockfile=readonly"], commands)
         self.assertIn(["terraform", "validate", "-no-color"], commands)
+        self.assertIn([autofix.sys.executable, "-m", "pytest", "tests/nested/test_policy.py", "-q"], commands)
         self.assertFalse(any("plan" in command or "apply" in command for command in commands))
+
+    def test_powerline_nonservice_findings_do_not_block_setup(self):
+        context = {"findings": [{"path": "docs/usage.md"}, {"path": "containers/powerline_analysis/main.py"}]}
+        with patch.object(autofix.project, "setup_service") as setup_service:
+            autofix.project.setup(Path("/repo"), context, {"kind": "powerline"})
+        setup_service.assert_called_once_with(Path("/repo"), "powerline_analysis")
 
     def test_powerline_service_mapping_and_isolation(self):
         project = autofix.project

@@ -69,7 +69,14 @@ def setup(root, context, profile):
     elif kind == "ios":
         run(["xcodebuild", "-resolvePackageDependencies", "-project", "kanopy-ios-app.xcodeproj", "-scheme", "KanopyAI"], root)
     elif kind == "powerline":
-        services = {service_for(f["path"]) for f in context["findings"]}
+        services = set()
+        for finding in context["findings"]:
+            try:
+                services.add(service_for(finding["path"]))
+            except ValueError:
+                # Non-service findings still need investigation; they must not
+                # prevent valid service findings from reaching the agent.
+                continue
         for service in sorted(services):
             setup_service(root, service)
     else:
@@ -90,6 +97,9 @@ def verify(root, tests, changed, profile):
             run(["npm", "--prefix", "packages/kanopy-embeds", "run", "typecheck"], root)
     elif kind == "infra":
         run([sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"], root)
+        # unittest discovery skips nested directories without __init__.py.
+        # Run the accepted regressions explicitly as well, including pytest tests.
+        run([sys.executable, "-m", "pytest", *tests, "-q"], root)
         run(["terraform", "init", "-backend=false", "-input=false", "-lockfile=readonly"], root)
         run(["terraform", "validate", "-no-color"], root)
         for name in changed:
