@@ -34,8 +34,9 @@ redaction apply before bounded excerpts reach the model. Expired or temporarily 
 back to check summaries and annotations. Missing evidence may require manual work.
 
 It reruns the affected test shard or service, SDK Python version, frontend unit or
-browser/build checks, simulator tests, or local Terraform validation. Cloud plans
-are diagnosed from logs; the fixer never runs a cloud plan/apply. Infrastructure,
+browser/build checks, simulator tests, or local Terraform validation. Environment-specific cloud plan failures are collected for a manual disposition;
+local validate alone cannot prove those checks fixed. The fixer never runs a
+cloud plan/apply. A PR with only these manual checks pauses without a model call. Infrastructure,
 credential, dependency-policy, and runner problems that need protected changes
 are reported for manual follow-up. Full remote CI must pass after a fix is pushed.
 

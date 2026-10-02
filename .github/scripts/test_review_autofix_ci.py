@@ -86,6 +86,21 @@ class CollectionTests(CIFixture, unittest.TestCase):
                 self.assertEqual(ci.collect(gh, gh.pr, gh.checks, self.policy), [])
         self.logs.assert_not_called()
 
+    def test_cloud_plan_only_failure_requests_manual_validation_without_model_call(self):
+        gh = CIGitHub()
+        # Reuse the real collection path with a policy requiring manual validation.
+        with patch.dict(autofix.PROFILE, {"ci_manual_targets": ["backend:core-auth"]}), tempfile.TemporaryDirectory() as directory, patch.object(autofix, "output") as output:
+            autofix.prepare(gh, SimpleNamespace(number=268, dry_run=False, directory=directory))
+        output.assert_called_once_with("ready", "false")
+        self.assertEqual(len(gh.writes), 1)
+        self.assertIn('"status":"needs_human"', gh.writes[0])
+        self.assertIn("No model call", gh.writes[0])
+
+    def test_cloud_plan_cannot_be_reported_as_locally_fixed(self):
+        with self.assertRaisesRegex(ValueError, "manual validation"):
+            autofix.validate_report(report(), ["key1"], ["key1"])
+        self.assertFalse(autofix.validate_report(report("needs_human"), ["key1"], ["key1"]))
+
     def test_pending_checks_do_not_spend_an_attempt(self):
         gh = CIGitHub()
         gh.checks.append({"status": "in_progress"})
@@ -322,6 +337,10 @@ class VerificationTests(unittest.TestCase):
                 raise subprocess.CalledProcessError(1, command)
         with patch.object(autofix.project, "run", side_effect=run):
             autofix.project.setup(Path("/repo"), {"findings": [{"kind": "ci", "target": "infra:terraform"}]}, {"kind": "infra"})
+
+    def test_malformed_ci_target_is_a_nonretryable_policy_error(self):
+        with self.assertRaisesRegex(ValueError, "project:check"):
+            autofix.project.ci_targets([{"kind": "ci", "target": "python"}])
 
     def test_python_ci_uses_failing_matrix_interpreter(self):
         with patch.object(autofix.project, "run") as run, patch.dict(os.environ, {"RUNNER_TEMP": "/tmp/runner"}):

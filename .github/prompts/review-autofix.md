@@ -15,7 +15,8 @@ Combine overlapping findings into one fix. If a product decision or a broad
 redesign is needed, report needs_human for that finding.
 
 CI entries identify the workflow, job, failed steps, annotations, and bounded log
-excerpts on this exact head. Reproduce the failure using the repository's trusted
+excerpts on this exact head. Entries with manual_only=true must receive a
+needs_human disposition: their cloud plans cannot be validated by this runner. Reproduce the failure using the repository's trusted
 validation commands; do not invent a code fix for an outage, missing credential,
 permission problem, or unsupported runtime. Report needs_human when necessary.
 If previous_validation_failure is present, investigate why the earlier candidate

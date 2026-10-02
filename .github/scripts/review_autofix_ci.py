@@ -125,6 +125,7 @@ def collect(gh, pr, checks, profile):
                 "kind": "ci", "key": key, "path": "", "line": None,
                 "reviewer": "github-actions", "url": job["html_url"],
                 "workflow": path, "check": job["name"], "target": target,
+                "manual_only": target in profile.get("ci_manual_targets", []),
                 "run_id": run["id"], "run_attempt": attempt, "job_id": job["id"],
                 "conclusion": job["conclusion"], "annotations": annotations,
                 "summary": redact(str(output.get("summary") or ""))[:3000],

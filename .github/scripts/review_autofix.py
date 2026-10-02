@@ -241,6 +241,7 @@ def prepare(gh, args):
              "fingerprint": snapshot, "keys": [f["key"] for f in findings],
              "urls": {f["key"]: f["url"] for f in findings},
              "ci_keys": [f["key"] for f in findings if f.get("kind") == "ci"],
+             "manual_keys": [f["key"] for f in findings if f.get("manual_only")],
              "status": "running", "processed": []}
     context = {"pr": args.number, "title": pr["title"], "state": state, "project": PROFILE,
                "findings": findings}
@@ -265,6 +266,14 @@ def prepare(gh, args):
     if args.dry_run:
         summary("Preview only: no API call to Codex, comment, branch change, or push.")
         return
+    if set(state["manual_keys"]) == set(state["keys"]):
+        state["status"] = "needs_human"
+        gh.comment(args.number, claim_body(state,
+            "Automatic repair paused: these environment-specific plan checks cannot be "
+            "reproduced without cloud access. Inspect their logs and validate the plan manually. "
+            "No model call or patch was made.\n\n" +
+            "\n".join(f"- [Failed check]({f['url']})" for f in findings)))
+        return
     if os.environ.get("HAS_OPENAI_KEY") != "true" or os.environ.get("HAS_PUSH_TOKEN") != "true":
         raise RuntimeError("Configure OPENAI_API_KEY and REVIEW_FIXER_TOKEN repository secrets first")
     link = f"https://github.com/{gh.repo}/actions/runs/{state['run_id']}"
@@ -279,7 +288,7 @@ def prepare(gh, args):
     output("ready", "true")
 
 
-def validate_report(report, keys):
+def validate_report(report, keys, manual_keys=()):
     if not isinstance(report.get("tests"), list) or not all(isinstance(t, str) for t in report["tests"]):
         raise ValueError("Report must include a list of test selectors")
     results = report["findings"]
@@ -288,6 +297,8 @@ def validate_report(report, keys):
         raise ValueError("Report must account for every finding exactly once with evidence")
     if not isinstance(report["summary"], str) or len(json.dumps(report)) > 40_000:
         raise ValueError("Invalid or oversized report")
+    if any(f["key"] in manual_keys and f["status"] != "needs_human" for f in results):
+        raise ValueError("Cloud plan findings require manual validation and a needs_human disposition")
     return any(f["status"] == "fixed" for f in results)
 
 
@@ -357,7 +368,7 @@ def package(args):
     directory, root = Path(args.directory), Path(args.source)
     context = json.loads((directory / "context.json").read_text())
     report = json.loads((directory / "agent-report.json").read_text())
-    fixed = validate_report(report, context["state"]["keys"])
+    fixed = validate_report(report, context["state"]["keys"], context["state"].get("manual_keys", []))
     if git(root, "rev-parse", "HEAD").decode().strip() != context["state"]["sha"]:
         raise ValueError("Agent changed HEAD")
     git(root, "add", "--all")
@@ -422,7 +433,7 @@ def publish(gh, args):
                          validation_failure=failure)
             # The fingerprint retains identity; the next attempt reconstructs
             # findings. Drop redundant lists so the diagnostic comment is bounded.
-            for key in ("keys", "ci_keys", "urls"):
+            for key in ("keys", "ci_keys", "manual_keys", "urls"):
                 state.pop(key, None)
             next_step = ("The next poll will investigate this patch and validation output again."
                          if retryable else "Automatic fixing has stopped; manual follow-up is required.")
@@ -431,7 +442,7 @@ def publish(gh, args):
                 f"[Inspect run]({link}). {next_step}\n\n" + failure["error"].replace("@", "＠")), state["comment_id"])
             return
         report = json.loads((directory / "report.json").read_text())
-        fixed = validate_report(report, state["keys"])
+        fixed = validate_report(report, state["keys"], state.get("manual_keys", []))
         patch = (directory / "change.patch").read_bytes()
         if bool(patch) != fixed or len(patch) > 1_000_000:
             raise ValueError("Missing or invalid patch")

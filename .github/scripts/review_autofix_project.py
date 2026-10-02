@@ -68,7 +68,10 @@ def run(command, root, **kwargs):
 
 
 def ci_targets(findings):
-    return {f["target"] for f in findings if f.get("kind") == "ci"}
+    targets = {f["target"] for f in findings if f.get("kind") == "ci"}
+    if any(not isinstance(t, str) or len(t.split(":")) != 2 or not all(t.split(":")) for t in targets):
+        raise ValueError("CI policy targets must use a nonempty project:check format; fix the trusted policy manually")
+    return targets
 
 
 def sdk_python(version):
@@ -137,9 +140,12 @@ def setup(root, context, profile):
                 version = target.split(":")[1]
                 setup_sdk_version(root, version if version.startswith("3.") else "3.13")
     elif kind == "frontend":
+        node = shutil.which("node")
+        if not node:
+            raise RuntimeError("Node.js must be installed by the workflow before frontend setup")
         if os.environ.get("GITHUB_ENV"):
             with open(os.environ["GITHUB_ENV"], "a") as stream:
-                stream.write(f"REVIEW_NODE_BIN={Path(shutil.which('node')).parent}\n")
+                stream.write(f"REVIEW_NODE_BIN={Path(node).parent}\n")
         run(["npm", "ci"], root)
         run(["npm", "ci", "--prefix", "packages/kanopy-embeds"], root)
         # Any repair may touch embeds source; install before sudo is removed.
