@@ -6,6 +6,7 @@ on:
       - '.github/scripts/review_autofix*.py'
       - '.github/scripts/test_review_autofix*.py'
       - '.github/review-autofix.json'
+      - '.github/review-autofix-core.json'
       - '.github/prompts/review-autofix*'
       - '.github/workflows/review-autofix*'
 

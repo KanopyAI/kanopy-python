@@ -42,7 +42,8 @@ that limit: the trusted verifier must still pass them before a fix is published.
 
 Keep test commands in the foreground with a finite timeout. Stop any child
 processes you start before returning the report. If a test hangs in the sandbox,
-record the test selector and symptoms for the trusted verifier; do not leave it
+record the test selector in tests and its symptoms in summary or the relevant
+finding explanation for the trusted verifier; do not leave it
 running or repeatedly wait without a deadline. The agent has a 30-minute limit.
 
 Return the required JSON report with exactly one disposition per supplied key:
@@ -50,5 +51,10 @@ fixed, not_valid, already_addressed, or needs_human. Cite concrete code or test
 evidence in each explanation. List affected existing test files matching test_paths
 (optionally with pytest ::node selectors for Python). The tests list may be empty
 for a CI-only repair: the trusted verifier still reruns the affected CI checks.
+Each tests entry is passed directly as a test argument. Use only the literal
+repository-relative file path or selector, with no commands, flags, status text,
+or appended explanations. For example, use "tests/test_example.py::test_case",
+not "tests/test_example.py::test_case — timed out". Put pass/fail results,
+timeouts and verification limits in summary or the finding explanations.
 A statement that tests passed does not replace independent verification. Leave
 the checkout unchanged if none of the findings is fixed.

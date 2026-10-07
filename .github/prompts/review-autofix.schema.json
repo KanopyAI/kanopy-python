@@ -17,6 +17,10 @@
         }
       }
     },
-    "tests": {"type": "array", "items": {"type": "string"}}
+    "tests": {
+      "type": "array",
+      "description": "Literal repository-relative test file paths, optionally with pytest ::node selectors. Put outcomes, timeouts and verification limits in summary or finding explanations, never in this list.",
+      "items": {"type": "string", "pattern": "^[^\\s:]+(?:::[^\\s:\\[\\]]+)*(?:\\[[^\\r\\n]*\\])?$"}
+    }
   }
 }

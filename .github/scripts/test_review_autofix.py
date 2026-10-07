@@ -3,6 +3,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 from types import SimpleNamespace
@@ -310,6 +311,26 @@ class ControllerTests(BackendPolicyFixture, unittest.TestCase):
             self.assertEqual(autofix.test_arguments(root, ["tests/test_example.py::test_x"]),
                              ["tests/test_example.py::test_x"])
 
+    def test_test_selectors_keep_parameter_ids_but_reject_report_prose(self):
+        schema = json.loads((Path(__file__).parents[1] / "prompts/review-autofix.schema.json").read_text())
+        pattern = schema["properties"]["tests"]["items"]["pattern"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tests").mkdir()
+            (root / "tests/test_example.py").touch()
+            selector = "tests/test_example.py::TestExample::test_x[two words::value]"
+            self.assertEqual(autofix.test_arguments(root, [selector]), [selector])
+            self.assertIsNotNone(re.fullmatch(pattern, selector))
+            for selector in [
+                "tests/test_example.py — affected HTTP coverage requires trusted verification",
+                "tests/test_example.py::test_x — blocked in TestClient.__enter__",
+                "tests/test_example.py::test_x[param] — timed out",
+            ]:
+                with self.subTest(selector=selector):
+                    self.assertIsNone(re.fullmatch(pattern, selector))
+                    with self.assertRaisesRegex(ValueError, r"tests\[0\]"):
+                        autofix.test_arguments(root, [selector])
+
     def test_publisher_rechecks_head_and_skip_label_before_git(self):
         for change in ["head", "skip_label"]:
             gh = FakeGitHub()
@@ -459,6 +480,80 @@ class PatchTests(BackendPolicyFixture, unittest.TestCase):
         self.assertFalse((directory / "artifact/change.patch").exists())
         self.assertFalse((directory / "artifact/report.json").exists())
 
+    def exercise_annotated_test_report(self, selector):
+        args, directory = self.setup_package()
+        selected = report()
+        selected["tests"] = [selector]
+        (directory / "agent-report.json").write_text(json.dumps(selected))
+        with patch.object(autofix.project, "verify") as verify:
+            with self.assertRaisesRegex(ValueError, r"tests\[0\]"):
+                autofix.package(args)
+            verify.assert_not_called()
+        failure = json.loads((directory / "artifact/validation-failure.json").read_text())
+        self.assertIn("timed out", failure["error"])
+        self.assertIn("+value = 2", failure["patch"])
+        self.assertFalse((directory / "artifact/change.patch").exists())
+        self.assertFalse((directory / "artifact/report.json").exists())
+        state = self.publish_failure(directory)
+        self.assertTrue(state["retryable_validation"])
+        self.assertEqual(state["validation_failure"], failure)
+
+    def test_annotated_file_reaches_publisher_as_retryable_validation_failure(self):
+        self.exercise_annotated_test_report("tests/test_example.py — timed out")
+
+    def test_annotated_node_reaches_publisher_as_retryable_validation_failure(self):
+        self.exercise_annotated_test_report("tests/test_example.py::test_example — timed out")
+
+    def publish_failure(self, directory, error=None):
+        gh = FakeGitHub()
+        state = {"run_id": "run1", "status": "running", "keys": ["key1"],
+                 "sha": gh.pr["head"]["sha"], "branch": gh.pr["head"]["ref"], "attempt": 1}
+        gh.comments = [{"id": 3, "user": {"login": "github-actions[bot]"},
+                        "body": autofix.claim_body(state, "Running")}]
+        with patch.dict(os.environ, {"GITHUB_RUN_ID": "run1"}), patch.object(autofix, "git") as git:
+            args = SimpleNamespace(number=268, directory=str(directory / "artifact"), source=str(self.root))
+            if error:
+                with self.assertRaisesRegex(RuntimeError, error):
+                    autofix.publish(gh, args)
+            else:
+                autofix.publish(gh, args)
+            git.assert_not_called()
+        self.assertNotIn("FileNotFoundError", gh.writes[-1])
+        return autofix.claims([{"id": 3, "user": {"login": "github-actions[bot]"},
+                               "body": gh.writes[-1]}])[0]
+
+    def test_packaging_policy_error_is_reported_without_allowing_publication_or_retry(self):
+        args, directory = self.setup_package()
+        (self.root / "tests/conftest.py").write_text("# protected\n")
+        with self.assertRaisesRegex(ValueError, "protected"):
+            autofix.package(args)
+        self.assertTrue((directory / "artifact/packaging-failure.json").exists())
+        self.assertFalse((directory / "artifact/change.patch").exists())
+        self.assertFalse((directory / "artifact/report.json").exists())
+        state = self.publish_failure(directory, "Patch touches a protected or unsupported path")
+        self.assertEqual(state["status"], "failed")
+        self.assertFalse(state.get("retryable_validation"))
+
+    def test_packaging_diagnostics_are_bounded_redacted_and_clean_up_partial_outputs(self):
+        args, directory = self.setup_package()
+        secret = "ghp_" + "x" * 30
+        original_write = Path.write_text
+        # Fail after change.patch has been written, as an interrupted report write would.
+        def fail_report(path, text, *args, **kwargs):
+            if path.name == "report.json":
+                raise OSError(f"Cannot write report: {secret} " + "detail " * 2000)
+            return original_write(path, text, *args, **kwargs)
+        with patch.object(autofix.project, "verify"), patch.object(Path, "write_text", fail_report):
+            with self.assertRaises(OSError):
+                autofix.package(args)
+        diagnostic = (directory / "artifact/packaging-failure.json").read_text()
+        self.assertLess(len(diagnostic.encode()), 8000)
+        self.assertNotIn(secret, diagnostic)
+        self.assertIn("[REDACTED]", diagnostic)
+        self.assertFalse((directory / "artifact/change.patch").exists())
+        self.assertFalse((directory / "artifact/report.json").exists())
+        self.publish_failure(directory, "Cannot write report")
+
     def test_success_packages_verified_diff_and_includes_changed_test_modules(self):
         args, directory = self.setup_package()
         selected = report()
@@ -493,7 +588,9 @@ class PatchTests(BackendPolicyFixture, unittest.TestCase):
         with patch.object(autofix.subprocess, "run", side_effect=run):
             with self.assertRaisesRegex(ValueError, "Tests changed"):
                 autofix.package(args)
-        self.assertFalse((directory / "artifact").exists())
+        self.assertTrue((directory / "artifact/packaging-failure.json").exists())
+        self.assertFalse((directory / "artifact/change.patch").exists())
+        self.assertFalse((directory / "artifact/report.json").exists())
 
 
 class ProjectPolicyTests(unittest.TestCase):

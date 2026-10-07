@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import subprocess
 import sys
 import urllib.request
@@ -23,6 +24,11 @@ REVIEWERS = {"greptile-apps", "sentry", "chatgpt-codex-connector"}
 PREFIX = "<!-- review-autofix:v1 "
 MAX_ATTEMPTS = 3
 DISPOSITIONS = {"fixed", "not_valid", "already_addressed", "needs_human"}
+TEST_SELECTOR_PATTERN = r"[^\s:]+(?:::[^\s:\[\]]+)*(?:\[[^\r\n]*\])?"
+
+
+class InvalidTestSelector(ValueError):
+    """An agent report needs correction before independent tests can run."""
 
 
 class GitHub:
@@ -344,18 +350,20 @@ def validate_patch(root):
 
 def test_arguments(root, tests, *, allow_empty=False):
     if not isinstance(tests, list) or (not tests and not allow_empty):
-        raise ValueError("Every fix requires affected regression tests")
+        raise InvalidTestSelector("Every fix requires affected regression tests")
     result = []
-    for node in tests:
-        if not isinstance(node, str):
-            raise ValueError("Test selectors must be strings")
+    for index, node in enumerate(tests):
+        error = (f"tests[{index}] must be an existing test file path, optionally with a pytest ::node selector; "
+                 f"put outcomes and timeout notes in summary or finding explanations. Got {node!r}")
+        if not isinstance(node, str) or re.fullmatch(TEST_SELECTOR_PATTERN, node) is None:
+            raise InvalidTestSelector(error)
         path = node.split("::")[0]
         resolved = (root / path).resolve()
         if (not is_test_file(path)
                 or not allowed_path(path) or not resolved.is_relative_to(root.resolve())
                 or not is_test_file(str(resolved.relative_to(root.resolve())))
                 or not resolved.is_file() or any(ord(c) < 32 for c in node)):
-            raise ValueError("Only existing test file paths and node selectors are accepted")
+            raise InvalidTestSelector(error)
         result.append(node)
     quarantine = root / "tests/quarantine.txt"
     if PROFILE["kind"] == "backend" and quarantine.exists():
@@ -365,6 +373,21 @@ def test_arguments(root, tests, *, allow_empty=False):
 
 
 def package(args):
+    try:
+        package_verified(args)
+    except Exception as exc:
+        artifact = Path(args.directory) / "artifact"
+        artifact.mkdir(exist_ok=True)
+        # Diagnostic artifacts never authorize a push, even after a partial write.
+        for name in ("change.patch", "report.json"):
+            (artifact / name).unlink(missing_ok=True)
+        if not (artifact / "validation-failure.json").exists():
+            error = ci.fit_json_string(ci.redact(f"{type(exc).__name__}: {exc}"), 4000)
+            (artifact / "packaging-failure.json").write_text(ci.safe_json({"error": error}))
+        raise
+
+
+def package_verified(args):
     directory, root = Path(args.directory), Path(args.source)
     context = json.loads((directory / "context.json").read_text())
     report = json.loads((directory / "agent-report.json").read_text())
@@ -382,18 +405,18 @@ def package(args):
             raise ValueError("Reviewer fixes must include a regression test")
         # Always run each changed regression module, even if the agent omitted it.
         report["tests"] = list(dict.fromkeys([*report["tests"], *changed_tests]))
-        tests = test_arguments(root, report["tests"], allow_empty=not regression)
         before = git(root, "diff", "--cached", "--binary")
         validation_log = directory / "validation.log"
         try:
+            tests = test_arguments(root, report["tests"], allow_empty=not regression)
             with project.capture_validation(validation_log):
                 project.verify(root, tests, paths, PROFILE, findings=context.get("findings", []))
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        except (InvalidTestSelector, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             # A failed patch is evidence for another bounded attempt, never a
             # publishable artifact. Keep the candidate as it was before testing.
             artifact = directory / "artifact"
             artifact.mkdir(exist_ok=True)
-            failure = ci.bounded_retry({"kind": "validation", "error": str(exc),
+            failure = ci.bounded_retry({"kind": "validation", "error": f"{type(exc).__name__}: {exc}",
                                         "log": project.log_tail(validation_log),
                                         "patch": before.decode("utf-8", errors="replace")})
             (artifact / "validation-failure.json").write_text(ci.safe_json(failure))
@@ -410,6 +433,18 @@ def package(args):
         raise ValueError("Patch too large for automatic publication")
     (artifact / "change.patch").write_bytes(patch)
     (artifact / "report.json").write_text(json.dumps(report, indent=2))
+
+
+def check_packaging_failure(directory):
+    packaging_failure = directory / "packaging-failure.json"
+    if packaging_failure.exists():
+        if packaging_failure.stat().st_size > 8000:
+            raise ValueError("Oversized packaging failure report")
+        failure = json.loads(packaging_failure.read_text())
+        if not isinstance(failure, dict) or not isinstance(failure.get("error"), str):
+            raise ValueError("Invalid packaging failure report")
+        error = ci.fit_json_string(ci.redact(failure["error"]), 4000).replace("@", "＠")
+        raise RuntimeError("Autofix packaging failed: " + error)
 
 
 def publish(gh, args):
@@ -441,6 +476,7 @@ def publish(gh, args):
                 f"Review autofix attempt {state['attempt']}/3 failed validation; no patch was pushed. "
                 f"[Inspect run]({link}). {next_step}\n\n" + failure["error"].replace("@", "＠")), state["comment_id"])
             return
+        check_packaging_failure(directory)
         report = json.loads((directory / "report.json").read_text())
         fixed = validate_report(report, state["keys"], state.get("manual_keys", []))
         patch = (directory / "change.patch").read_bytes()

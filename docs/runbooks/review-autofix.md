@@ -117,6 +117,19 @@ patch. Only independent policy checks and successful validation produce
 `change.patch` and `report.json`, which the fresh publisher can consume. A hard
 agent timeout stays a failed attempt under the existing three-attempt budget.
 
+## Report validation and diagnostics
+
+The report's `tests` array accepts literal existing test files, optionally with
+pytest `::node` selectors. Put outcomes and timeout explanations in the summary
+or finding explanations. Invalid selectors fail before tests execute and retain
+the candidate patch for the existing bounded validation retry (three attempts).
+
+Other packaging failures preserve a bounded, redacted `packaging-failure.json`.
+The publisher reports that original error instead of looking for an absent
+validated report. Policy violations and unexpected packaging errors remain
+failed attempts requiring manual follow-up. Neither diagnostic artifact permits
+publication; partial `change.patch` and `report.json` files are removed on failure.
+
 ## Controller tests
 
 ```bash
@@ -137,3 +150,26 @@ a fake Codex executable. It first proves that an orphan holding stdout/stderr
 hangs the caller, then verifies that the adapter preserves the final report,
 forwards logs, and stops the child. Hosted Linux tests exercise `drop-sudo`;
 the iOS job verifies the process boundary on macOS. No model call is needed.
+
+## Shared report core
+
+The report prompt, schema, selector validation, packaging and packaging-error
+reader share a baseline maintained in `KanopyAI/kanopy-backend` and vendored in
+frontend, Powerline, iOS, infra and Python. The normal controller tests compare
+these sections with `.github/review-autofix-core.json`; unrelated controller
+functions, repository policies, validation commands and runner settings can differ.
+
+To check several local checkouts against the backend baseline, run from backend:
+
+```bash
+python3 .github/scripts/review_autofix_parity.py ../kanopy-frontend ../Powerline_3D ../Kanopy-ios-app ../kanopy-infra ../kanopy-python
+```
+
+For an intentional shared change, update backend first and run
+`python3 .github/scripts/review_autofix_parity.py --write-manifest`. Port only the
+changed shared sections and copy the manifest, parity script and parity tests to
+the companion repos. Run the cross-repo command and each repo's controller tests
+before opening the companion PRs. Do not replace entire controllers: Powerline,
+for example, has a separate diagnostic for jobs that never produce a report.
+A local CI run uses its checked-in baseline without network access; the cross-repo
+command also detects independently refreshed or stale companion baselines.
