@@ -24,13 +24,13 @@ jobs:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: KanopyAI/kanopy-autofix
-        ref: e05ce6fb1ded05b71c15dab18eb036525abdb939
+        ref: 3427b710a702c5c1fe340d6dcd529ebab167e39f
         token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
         path: engine
         persist-credentials: false
     - name: Check pins, profile and caller contract without executing caller code
       env:
-        ENGINE_SHA: e05ce6fb1ded05b71c15dab18eb036525abdb939
+        ENGINE_SHA: 3427b710a702c5c1fe340d6dcd529ebab167e39f
         POLICY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: |
         python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA" --policy-sha "$POLICY_SHA"

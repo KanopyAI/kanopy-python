@@ -1,10 +1,10 @@
 {
   "id": "shared-autofix-engine",
-  "source_digest": "47f35f8170a57b653772b708cede0c36859d2a42fcef4382de39de6b08478b87",
+  "source_digest": "0c867ec2ff660e23f8e25b7e358209529417b3f7f83b851034692792f154b672",
   "source_files": [
     {
       "path": ".github/autofix-engine.json",
-      "blob": "c96b3f44d6bb47bf2b948ec329bb7366422ee5c1"
+      "blob": "e94fcf0f60dbe488f2661b7d54fcd6b77d8ad843"
     },
     {
       "path": ".github/prompts/review-autofix.md",
@@ -76,15 +76,15 @@
     },
     {
       "path": ".github/workflows/review-autofix-checks.yml",
-      "blob": "81975cb536fc7d61c2618dd2b2a0aee0be460b58"
+      "blob": "55c09353d3143aed87f6c8e681282e2477aed54e"
     },
     {
       "path": ".github/workflows/review-autofix-update.yml",
-      "blob": "84e06c48bc11f8a075daa92233e044283d6c4604"
+      "blob": "ad26086c59efbb0ddc9a62f5f2e38e58adb29e3d"
     },
     {
       "path": ".github/workflows/review-autofix.yml",
-      "blob": "2dfea9353b0ee4e9fca8c007f36f5090cf231473"
+      "blob": "e7c832757c2830c6150c4a32061a5fe90bfc1dff"
     },
     {
       "path": "AGENTS.md",
