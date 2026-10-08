@@ -173,3 +173,40 @@ before opening the companion PRs. Do not replace entire controllers: Powerline,
 for example, has a separate diagnostic for jobs that never produce a report.
 A local CI run uses its checked-in baseline without network access; the cross-repo
 command also detects independently refreshed or stale companion baselines.
+
+## Customer-impact records travel with fixes
+
+The trusted `customer_impact.required` policy enables release validation in
+backend, frontend, Powerline and iOS. Infrastructure and the Python SDK explicitly
+leave it disabled because they have no structured release-impact gate. All six
+repositories carry the same report/packaging core and impact helper; do not add a
+blanket `.release-notes/*` exception to `allowed_paths`.
+
+Before the model runs, the controller pins the PR head and merge base and lists
+only impact entries added by this PR. Historical entries stay immutable. A PR
+without an entry receives one deterministic allowed filename. Promotion fixes
+receive a new record against the head of their separate fix PR; an existing
+promotion release-policy failure requires manual assessment.
+
+Every published fix requires the model's explicit, head-specific review of each
+entry against the full PR delta, including the original author change. The model
+updates prose when behavior changes and records evidence when wording remains
+accurate. Only then does trusted code stamp the staged source digest and blob
+fingerprints. It validates the entry, reruns applicable application checks, and
+rejects test mutations. The clean publisher validates again, without restamping
+or executing PR scripts, and rechecks the PR base and head before pushing.
+
+`Customer impact recorded` is a required completion check and a supported CI
+repair target when this policy is enabled. A metadata-only repair runs release
+validation; a source repair also runs application validation. The optional release
+drafting bot still cannot overwrite author-written entries. Missing assessments,
+protected-file edits and invalid records produce diagnostic artifacts and no push.
+Attempts still have the same three-run budget; this change does not reset failed
+or paused PRs or declare them ready based on a previous head's green checks.
+
+These workflows execute trusted code from the repository's default branch.
+Merging the change there activates it for subsequent attempts; merely updating a
+feature branch does not. Existing exhausted/needs_human attempts need manual
+follow-up, and deployments are unaffected. Verify the shared core before rolling
+out changes using `.github/scripts/review_autofix_parity.py` with all six checkout
+paths; keep their baseline manifests synchronized.

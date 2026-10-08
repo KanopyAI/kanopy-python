@@ -25,7 +25,8 @@ then implement a corrected fix. Each follow-up consumes another attempt from the
 same three-attempt PR budget. No failed patch is automatically applied or pushed.
 
 Preserve the PR's intended behavior and feature-flag defaults. Make changes only
-in the allowed_paths from the context's project policy. Add or update regression
+in the allowed_paths from the context's project policy, plus the exact impact
+entry paths supplied in customer_impact.allowed_entries. Add or update regression
 tests matching its test_paths, and follow its validation_description.
 Do not change AGENTS.md, conftest.py, quarantine lists,
 CI, dependencies, credentials, deployment settings, or the automation itself.
@@ -58,3 +59,30 @@ not "tests/test_example.py::test_case — timed out". Put pass/fail results,
 timeouts and verification limits in summary or the finding explanations.
 A statement that tests passed does not replace independent verification. Leave
 the checkout unchanged if none of the findings is fixed.
+
+When customer_impact is present in the context, every confirmed fix must include
+an explicit impact review against the entire PR source diff from base_sha,
+including both the author's original change and your fixes. Inspect behavior,
+authentication, permissions, links, scopes, storage, flags, processing/rerun
+requirements and availability. Read every allowed entry; update its prose where
+that behavior changes. If the original prose remains accurate, explain why with
+concrete code evidence. Do not merely refresh fingerprints or claim a review
+without tracing behavior. Do not invent notice dates, migration routes or tests.
+
+You may edit only customer_impact.allowed_entries under .release-notes. Preserve
+every entry's id. If no entry exists, create the supplied path using entry_schema
+and an id matching its filename; use a 64-zero source_digest and [] source_files
+as placeholders. The trusted verifier will stamp these fields after your review.
+Never edit or delete historical entries, add arbitrary impact files, or change
+the release tooling. If safe, accurate wording needs a product/release decision,
+report needs_human and leave the checkout unchanged.
+
+For any fixed finding in a repository with this policy, set the report's
+customer_impact to {"head_sha": "<context head_sha>", "entries": [{"path":
+"<allowed path>", "assessment": "<behavior inspected and why its prose is now accurate>"}]}.
+Include exactly one assessment for every allowed path, even if its prose remains
+unchanged. For repositories without this policy, or when nothing is fixed, use
+null. A stale/missing impact record can itself be a CI-only fix with tests: [];
+its trusted release validator must pass. Code changes still require the normal
+application checks. The publisher rechecks the resulting records without
+restamping them and never runs PR scripts with its write credential.

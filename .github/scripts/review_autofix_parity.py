@@ -12,11 +12,13 @@ MANIFEST = ".github/review-autofix-core.json"
 CONTROLLER = ".github/scripts/review_autofix.py"
 SYMBOLS = (
     "MAX_ATTEMPTS", "TEST_SELECTOR_PATTERN", "InvalidTestSelector",
-    "test_arguments", "package", "package_verified", "check_packaging_failure",
+    "test_arguments", "package", "package_verified", "check_packaging_failure", "validate_patch",
 )
 FILES = (
     ".github/prompts/review-autofix.md",
     ".github/prompts/review-autofix.schema.json",
+    ".github/scripts/review_autofix_impact.py",
+    ".github/scripts/test_review_autofix_impact.py",
     ".github/scripts/review_autofix_parity.py",
     ".github/scripts/test_review_autofix_parity.py",
 )

@@ -21,5 +21,8 @@
       "quality": "python:quality",
       "package": "python:package"
     }
+  },
+  "customer_impact": {
+    "required": false
   }
 }

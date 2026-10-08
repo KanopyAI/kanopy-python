@@ -6,8 +6,8 @@ import fnmatch
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
 import re
+from pathlib import Path, PurePosixPath
 import subprocess
 import sys
 import urllib.request
@@ -15,6 +15,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import review_autofix_project as project
 import review_autofix_ci as ci
+import review_autofix_impact as impact
 
 PROFILE = json.loads((Path(__file__).resolve().parents[1] / "review-autofix.json").read_text())
 
@@ -24,8 +25,9 @@ REVIEWERS = {"greptile-apps", "sentry", "chatgpt-codex-connector"}
 PREFIX = "<!-- review-autofix:v1 "
 MAX_ATTEMPTS = 3
 DISPOSITIONS = {"fixed", "not_valid", "already_addressed", "needs_human"}
-TEST_SELECTOR_PATTERN = r"[^\s:]+(?:::[^\s:\[\]]+)*(?:\[[^\r\n]*\])?"
 
+
+TEST_SELECTOR_PATTERN = r"[^\s:]+(?:::[^\s:\[\]]+)*(?:\[[^\r\n]*\])?"
 
 class InvalidTestSelector(ValueError):
     """An agent report needs correction before independent tests can run."""
@@ -234,6 +236,7 @@ def prepare(gh, args):
         return
     findings = pending_findings([
         *gh.findings(args.number), *ci.collect(gh, pr, checks["check_runs"], PROFILE)], history)
+    impact.classify(findings, pr)
     snapshot = fingerprint(sha, findings)
     if not findings:
         summary(f"PR #{args.number}: no new reviewer findings or supported CI failures. This is not a merge approval.")
@@ -249,6 +252,7 @@ def prepare(gh, args):
              "ci_keys": [f["key"] for f in findings if f.get("kind") == "ci"],
              "manual_keys": [f["key"] for f in findings if f.get("manual_only")],
              "status": "running", "processed": []}
+    impact.pin(gh, pr, state, PROFILE)
     context = {"pr": args.number, "title": pr["title"], "state": state, "project": PROFILE,
                "findings": findings}
     prior = [c for c in history if c.get("sha") == sha and c.get("fingerprint") == snapshot
@@ -275,8 +279,8 @@ def prepare(gh, args):
     if set(state["manual_keys"]) == set(state["keys"]):
         state["status"] = "needs_human"
         gh.comment(args.number, claim_body(state,
-            "Automatic repair paused: these environment-specific plan checks cannot be "
-            "reproduced without cloud access. Inspect their logs and validate the plan manually. "
+            "Automatic repair paused: these environment or release-policy checks cannot be "
+            "safely repaired by this runner. Inspect their logs and validate them manually. "
             "No model call or patch was made.\n\n" +
             "\n".join(f"- [Failed check]({f['url']})" for f in findings)))
         return
@@ -304,7 +308,7 @@ def validate_report(report, keys, manual_keys=()):
     if not isinstance(report["summary"], str) or len(json.dumps(report)) > 40_000:
         raise ValueError("Invalid or oversized report")
     if any(f["key"] in manual_keys and f["status"] != "needs_human" for f in results):
-        raise ValueError("Cloud plan findings require manual validation and a needs_human disposition")
+        raise ValueError("Manual-only CI findings require manual validation and a needs_human disposition")
     return any(f["status"] == "fixed" for f in results)
 
 
@@ -335,9 +339,9 @@ def git(root, *args, env=None):
     return subprocess.check_output(["git", "-C", str(root), *args], env=env)
 
 
-def validate_patch(root):
+def validate_patch(root, impact_paths=()):
     paths = git(root, "diff", "--cached", "--no-renames", "--name-only", "-z").decode().split("\0")[:-1]
-    if any(not allowed_path(path) for path in paths):
+    if any(not allowed_path(path) and path not in impact_paths for path in paths):
         raise ValueError("Patch touches a protected or unsupported path")
     for entry in git(root, "diff", "--cached", "--raw", "--no-renames", "-z").split(b"\0"):
         if entry.startswith(b":"):
@@ -395,7 +399,11 @@ def package_verified(args):
     if git(root, "rev-parse", "HEAD").decode().strip() != context["state"]["sha"]:
         raise ValueError("Agent changed HEAD")
     git(root, "add", "--all")
-    paths = validate_patch(root)
+    impact_paths = impact.allowed_entries(root, context["state"], PROFILE)
+    paths = validate_patch(root, impact_paths)
+    if fixed:
+        impact.review_and_stamp(root, report, context["state"], PROFILE)
+        paths = validate_patch(root, impact_paths)
     if bool(paths) != fixed:
         raise ValueError("Patch must correspond to at least one confirmed fix")
     if fixed:
@@ -410,7 +418,11 @@ def package_verified(args):
         try:
             tests = test_arguments(root, report["tests"], allow_empty=not regression)
             with project.capture_validation(validation_log):
-                project.verify(root, tests, paths, PROFILE, findings=context.get("findings", []))
+                findings = context.get("findings", [])
+                if impact.needs_application_checks(paths, tests, findings):
+                    project.verify(root, tests, paths, PROFILE,
+                                   findings=impact.application_findings(findings))
+                impact.check(root, report, context["state"], PROFILE)
         except (InvalidTestSelector, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             # A failed patch is evidence for another bounded attempt, never a
             # publishable artifact. Keep the candidate as it was before testing.
@@ -422,7 +434,7 @@ def package_verified(args):
             (artifact / "validation-failure.json").write_text(ci.safe_json(failure))
             raise
         git(root, "add", "--all")
-        validate_patch(root)
+        validate_patch(root, impact_paths)
         if (git(root, "diff", "--cached", "--binary") != before
                 or git(root, "rev-parse", "HEAD").decode().strip() != context["state"]["sha"]):
             raise ValueError("Tests changed the proposed patch or HEAD; refusing to publish untested changes")
@@ -487,6 +499,7 @@ def publish(gh, args):
                 or pr["head"]["sha"] != state["sha"] or pr["head"]["ref"] != state["branch"]):
             raise ValueError("PR changed or was opted out while the fixer ran; patch was not pushed")
         if fixed:
+            impact.recheck_base(gh, pr, state, PROFILE)
             root = Path(args.source)
             root.mkdir(parents=True, exist_ok=True)
             env = dict(os.environ, GH_TOKEN=os.environ["REVIEW_FIXER_TOKEN"],
@@ -496,8 +509,11 @@ def publish(gh, args):
             git(root, "remote", "add", "origin", f"https://github.com/{gh.repo}.git")
             git(root, "fetch", "--depth=1", "origin", state["sha"], env=env)
             git(root, "checkout", "--detach", "FETCH_HEAD")
+            if impact.enabled(PROFILE):
+                git(root, "fetch", "--depth=1", "origin", state["impact"]["base"], env=env)
             git(root, "apply", "--index", str((directory / "change.patch").resolve()))
-            paths = validate_patch(root)
+            paths = validate_patch(root, impact.allowed_entries(root, state, PROFILE))
+            impact.check(root, report, state, PROFILE)
             if requires_regression(report, state) and not any(is_test_file(p) and (root / p).is_file() for p in paths):
                 raise ValueError("Missing regression test")
             git(root, "-c", "user.name=github-actions[bot]", "-c",
@@ -509,6 +525,7 @@ def publish(gh, args):
                     or latest["head"]["sha"] != state["sha"]):
                 raise ValueError("PR changed or was opted out before push")
             # Normal fast-forward push: a concurrent human push is rejected, never overwritten.
+            impact.recheck_base(gh, latest, state, PROFILE)
             git(root, "push", "origin", f"HEAD:refs/heads/{state['branch']}", env=env)
             state["pushed_sha"] = git(root, "rev-parse", "HEAD").decode().strip()
         state["status"] = "needs_human" if any(f["status"] == "needs_human" for f in report["findings"]) else "completed"
@@ -559,6 +576,8 @@ def main():
     args = parser.parse_args()
     if args.command == "setup":
         context = json.loads((Path(args.directory) / "context.json").read_text())
+        impact.describe(Path(args.source).resolve(), context, PROFILE)
+        (Path(args.directory) / "context.json").write_text(json.dumps(context, indent=2))
         project.setup(Path(args.source).resolve(), context, PROFILE)
         return
     if args.command == "package":
