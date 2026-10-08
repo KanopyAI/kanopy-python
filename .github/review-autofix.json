@@ -30,5 +30,8 @@
   },
   "required_completion_checks": [
     "Customer impact recorded"
-  ]
+  ],
+  "promotion_pairs": [],
+  "require_current_head_reviews": false,
+  "trigger_workflows": []
 }

@@ -130,55 +130,50 @@ validated report. Policy violations and unexpected packaging errors remain
 failed attempts requiring manual follow-up. Neither diagnostic artifact permits
 publication; partial `change.patch` and `report.json` files are removed on failure.
 
-## Controller tests
+## Shared engine and updates
 
-```bash
-python3 -m unittest discover -s .github/scripts -p 'test_review_autofix*.py' -v
-```
+The controller, prompts, runner adapter and regression suite are maintained in
+[KanopyAI/kanopy-autofix](https://github.com/KanopyAI/kanopy-autofix). This repository
+keeps its policy in `.github/review-autofix.json` and an immutable engine commit in
+`.github/autofix-engine.json`. The caller workflows are generated from that engine.
+Fix shared automation bugs and add their regression tests centrally; do not restore
+local controller copies or shared-core parity manifests.
 
-As in the repository's existing CI, dependency installation and test code from
-same-repository PRs are trusted to execute on the runner. Fork PRs are excluded.
-The agent is sandboxed to its source checkout, and push credentials are present
-only on the fresh publisher runner.
+Private repositories call the pinned reusable workflow. The public Python SDK
+uses a generated bootstrap from the same job definition because GitHub cannot
+call a private reusable workflow from a public repository. It downloads the same
+pinned engine without publishing private engine bundles as artifacts.
 
-These tests cover eligibility, attempt limits, publication checks, test failure
-handling, and project-specific validation commands. They do not substitute for
-a live Codex run with the repository's configured credentials.
+Engine checkout uses `AUTOFIX_ENGINE_READ_TOKEN` when configured, otherwise the
+existing `REVIEW_FIXER_TOKEN`. The credential needs read access to the private
+engine repository. Every checkout disables credential persistence, and downloads
+finish before PR dependencies or tests execute. The model and verifier receive
+neither credential. Publication runs on a fresh runner.
 
-The process regression also invokes the exact pinned upstream Node wrapper with
-a fake Codex executable. It first proves that an orphan holding stdout/stderr
-hangs the caller, then verifies that the adapter preserves the final report,
-forwards logs, and stops the child. Hosted Linux tests exercise `drop-sudo`;
-the iOS job verifies the process boundary on macOS. No model call is needed.
+After central tests and a frontend dry-run, a maintainer promotes a merged engine
+commit to the central `stable` channel. The weekly **Update autofix engine** job
+(or a manual dispatch) opens a normal PR with the new immutable pin, generated
+workflows and a stamped internal impact record. It never merges automatically,
+never resets attempt history, and respects a previously closed update PR. `stable`
+is used only to discover updates; live jobs execute the reviewed commit pin.
 
-## Shared report core
+Review the engine change and consumer checks before merging an update. To roll
+back, regenerate the callers and lock using a previously tested engine commit,
+add a new impact record, and review that PR normally. Configure or change local
+policy here, then regenerate using the pinned engine's `scripts/render_consumer.py`.
+Keep the generated files together; CI rejects inconsistent pins or workflows.
 
-The report prompt, schema, selector validation, packaging and packaging-error
-reader share a baseline maintained in `KanopyAI/kanopy-backend` and vendored in
-frontend, Powerline, iOS, infra and Python. The normal controller tests compare
-these sections with `.github/review-autofix-core.json`; unrelated controller
-functions, repository policies, validation commands and runner settings can differ.
-
-To check several local checkouts against the backend baseline, run from backend:
-
-```bash
-python3 .github/scripts/review_autofix_parity.py ../kanopy-frontend ../Powerline_3D ../Kanopy-ios-app ../kanopy-infra ../kanopy-python
-```
-
-For an intentional shared change, update backend first and run
-`python3 .github/scripts/review_autofix_parity.py --write-manifest`. Port only the
-changed shared sections and copy the manifest, parity script and parity tests to
-the companion repos. Run the cross-repo command and each repo's controller tests
-before opening the companion PRs. Do not replace entire controllers: Powerline,
-for example, has a separate diagnostic for jobs that never produce a report.
-A local CI run uses its checked-in baseline without network access; the cross-repo
-command also detects independently refreshed or stale companion baselines.
+The central README documents controller tests and Linux/macOS process regressions.
+Consumer CI validates the policy, pin and generated workflows without executing
+candidate caller scripts. Application CI and customer-impact validation remain
+required. Existing bot comments, finding fingerprints, three-attempt limits,
+opt-outs, human pauses and per-repository concurrency survive migration.
 
 ## Customer-impact records travel with fixes
 
 The trusted `customer_impact.required` policy enables impact validation in all
 six autofixer repositories: backend, frontend, Powerline, iOS, infrastructure and
-the Python SDK. They carry the same release engine and report/packaging core;
+the Python SDK. They use the shared autofix engine and retain their own trusted release engine;
 do not add a blanket `.release-notes/*` exception to `allowed_paths`.
 Infrastructure and SDK PRs validate against their explicit main-branch merge base
 and combined merge candidate. Their gate does not claim that infrastructure has
@@ -207,9 +202,7 @@ protected-file edits and invalid records produce diagnostic artifacts and no pus
 Attempts still have the same three-run budget; this change does not reset failed
 or paused PRs or declare them ready based on a previous head's green checks.
 
-These workflows execute trusted code from the repository's default branch.
-Merging the change there activates it for subsequent attempts; merely updating a
-feature branch does not. Existing exhausted/needs_human attempts need manual
-follow-up, and deployments are unaffected. Verify the shared core before rolling
-out changes using `.github/scripts/review_autofix_parity.py` with all six checkout
-paths; keep their baseline manifests synchronized.
+Live runs use the default branch's reviewed engine pin and policy. Merging a
+migration or update there activates that version for subsequent attempts; updating
+a feature branch alone does not. Existing exhausted or needs_human attempts retain
+their state and require manual follow-up. Application deployments are unaffected.

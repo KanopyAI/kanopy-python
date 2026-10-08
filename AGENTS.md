@@ -15,7 +15,8 @@ Run feature validation and the merged-candidate preflight before requesting revi
 Reconcile any concurrent main changes that produce unassessed merged file blobs.
 Merging source does not establish that an SDK package has been published.
 
-The release engine and autofix report core are shared with backend, frontend,
-Powerline, iOS and infra. Update the canonical backend copies first, synchronize
-the companion files and manifests, and run release/autofix tests plus cross-repo
-parity checks. Preserve this repository's validation commands and package publication policy.
+The release-note engine remains synchronized from the canonical backend copy;
+run its tests and preserve this repository's release policy. Autofix controller
+code and tests now live in KanopyAI/kanopy-autofix. Keep local validation policy
+here, consume reviewed immutable engine pins, and use the generated consumer
+contract checks. Do not copy autofix controllers or parity manifests between repos.

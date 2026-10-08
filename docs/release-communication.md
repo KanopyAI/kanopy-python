@@ -58,6 +58,7 @@ remain protected. Missing current-head impact checks block model work; failed
 impact checks are eligible for a reviewed metadata repair. Source fixes retain
 the existing application checks and the three-attempt budget.
 
-Backend is the canonical source of the shared engine and report core. Synchronize
-all six autofixer repositories using `sync_release_engine.py` and
-`review_autofix_parity.py`, including infra and Python, whenever those files change.
+Backend remains the canonical source for the release-note engine; synchronize
+that engine with `sync_release_engine.py` and run its tests. The autofix controller
+and report schema live in [KanopyAI/kanopy-autofix](https://github.com/KanopyAI/kanopy-autofix).
+Consume engine fixes through reviewed version-update PRs; see the autofix runbook.
