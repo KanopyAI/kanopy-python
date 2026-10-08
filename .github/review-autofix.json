@@ -20,9 +20,15 @@
       "test (3.14)": "python:3.14",
       "quality": "python:quality",
       "package": "python:package"
+    },
+    ".github/workflows/customer-impact.yml": {
+      "Customer impact recorded": "release:impact"
     }
   },
   "customer_impact": {
-    "required": false
-  }
+    "required": true
+  },
+  "required_completion_checks": [
+    "Customer impact recorded"
+  ]
 }

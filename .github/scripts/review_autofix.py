@@ -15,6 +15,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import review_autofix_project as project
 import review_autofix_ci as ci
+import review_autofix_readiness as readiness
 import review_autofix_impact as impact
 
 PROFILE = json.loads((Path(__file__).resolve().parents[1] / "review-autofix.json").read_text())
@@ -224,18 +225,12 @@ def prepare(gh, args):
     if len(history) >= MAX_ATTEMPTS:
         summary(f"PR #{args.number}: three-attempt limit reached; manual follow-up required.")
         return
-    checks = gh.get(f"commits/{sha}/check-runs?per_page=100&filter=latest")
-    if checks["total_count"] > 100:
-        raise RuntimeError("More than 100 checks; cannot establish completion")
-    if any(c["status"] != "completed" for c in checks["check_runs"]):
-        summary(f"PR #{args.number}: waiting for checks/reviewers to finish.")
-        return
-    statuses = gh.get(f"commits/{sha}/status")
-    if statuses["total_count"] and statuses["state"] == "pending":
-        summary(f"PR #{args.number}: waiting for commit statuses.")
+    checks, waiting = readiness.inspect(gh, pr, PROFILE, require_reviews=not history)
+    if waiting:
+        summary(f"PR #{args.number}: {waiting}.")
         return
     findings = pending_findings([
-        *gh.findings(args.number), *ci.collect(gh, pr, checks["check_runs"], PROFILE)], history)
+        *gh.findings(args.number), *ci.collect(gh, pr, checks, PROFILE)], history)
     impact.classify(findings, pr)
     snapshot = fingerprint(sha, findings)
     if not findings:

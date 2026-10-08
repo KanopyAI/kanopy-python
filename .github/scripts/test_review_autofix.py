@@ -66,8 +66,10 @@ class FakeGitHub:
             return self.pr
         if "check-runs" in path:
             return {"total_count": len(self.checks), "check_runs": self.checks}
-        if path.endswith("/status"):
-            return {"total_count": 0, "state": "pending"}
+        if "/status?" in path:
+            return {"total_count": 0, "state": "pending", "statuses": []}
+        if path.startswith("actions/runs?"):
+            return {"total_count": 0, "workflow_runs": []}
         raise AssertionError(path)
 
     def pages(self, path):

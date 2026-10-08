@@ -176,11 +176,14 @@ command also detects independently refreshed or stale companion baselines.
 
 ## Customer-impact records travel with fixes
 
-The trusted `customer_impact.required` policy enables release validation in
-backend, frontend, Powerline and iOS. Infrastructure and the Python SDK explicitly
-leave it disabled because they have no structured release-impact gate. All six
-repositories carry the same report/packaging core and impact helper; do not add a
-blanket `.release-notes/*` exception to `allowed_paths`.
+The trusted `customer_impact.required` policy enables impact validation in all
+six autofixer repositories: backend, frontend, Powerline, iOS, infrastructure and
+the Python SDK. They carry the same release engine and report/packaging core;
+do not add a blanket `.release-notes/*` exception to `allowed_paths`.
+Infrastructure and SDK PRs validate against their explicit main-branch merge base
+and combined merge candidate. Their gate does not claim that infrastructure has
+been applied or that an SDK package has been published; those remain separate
+release processes. See the repository's release-communication guide.
 
 Before the model runs, the controller pins the PR head and merge base and lists
 only impact entries added by this PR. Historical entries stay immutable. A PR

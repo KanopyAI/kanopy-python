@@ -1,0 +1,30 @@
+name: Customer impact
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: customer-impact-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-impact:
+    name: Customer impact recorded
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the assessment and merged candidate
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python3 .github/scripts/release_notes.py check --base "$PR_BASE" --head "$PR_HEAD" --feature
+          python3 .github/scripts/release_notes.py preflight --base "$PR_BASE" --head "$PR_HEAD" --target "$PR_BASE" \
+            --run python3 -m unittest discover -s .github/scripts -p 'test_release_notes*.py' -v

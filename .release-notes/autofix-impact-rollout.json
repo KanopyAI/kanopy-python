@@ -1,0 +1,118 @@
+{
+  "id": "autofix-impact-rollout",
+  "source_digest": "6ffdc4e17df8b9dec3e4563308b168d7109f52899043ff95a223b873fd977b97",
+  "source_files": [
+    {
+      "path": ".github/prompts/review-autofix.md",
+      "blob": "cdcffb98fcf56bcb4028cf099ffa7e4dcd56ff0b"
+    },
+    {
+      "path": ".github/prompts/review-autofix.schema.json",
+      "blob": "3fbc5791d31ffed833777dedab30ac13fa260564"
+    },
+    {
+      "path": ".github/release-notes-engine.json",
+      "blob": "d7ecaed8db619f2f111203b9e60b5f8097fede29"
+    },
+    {
+      "path": ".github/review-autofix-core.json",
+      "blob": "e452b2e8939e1eb41d23484183a525627acf7d20"
+    },
+    {
+      "path": ".github/review-autofix.json",
+      "blob": "2d04eb7844c4115fb161d72c2d67b7081de99ac3"
+    },
+    {
+      "path": ".github/scripts/release_notes.py",
+      "blob": "f7146e0bff8d84fcbc2a090580fe64ed0ea8813f"
+    },
+    {
+      "path": ".github/scripts/release_notes_controller.py",
+      "blob": "396e07b4929e530fb7ed182d3c2db2ceb4e3601b"
+    },
+    {
+      "path": ".github/scripts/review_autofix.py",
+      "blob": "fb8e1a583997d321fc633777ec4f9724cdfad97c"
+    },
+    {
+      "path": ".github/scripts/review_autofix_impact.py",
+      "blob": "c53ae9759347eb86270411d576b09cc1149f4eaa"
+    },
+    {
+      "path": ".github/scripts/review_autofix_parity.py",
+      "blob": "92053495065bcde919ebf863bb14532b64fb4961"
+    },
+    {
+      "path": ".github/scripts/review_autofix_readiness.py",
+      "blob": "ae33961ece10c173a78eacdbb4255a80d69b5b34"
+    },
+    {
+      "path": ".github/scripts/test_release_notes.py",
+      "blob": "3cabbd6481da3edc552af1aa07a3efffc9c563fa"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix.py",
+      "blob": "b76aa5f2809d45a5720847b43608335a5066ada2"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_impact.py",
+      "blob": "7dda8a833adf7a16bd9cef3bc4b2cd0147e3390c"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_parity.py",
+      "blob": "0056732e48a9137b83a29cf2a791aab75e0df8c1"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_readiness.py",
+      "blob": "e04857b51159ff9aa5b93c4380b13439e5cf213a"
+    },
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "0eaec7a439771e7eda2c57f53ef801789ea888f0"
+    },
+    {
+      "path": ".github/workflows/review-autofix-checks.yml",
+      "blob": "a7e0e872865db163833c3b9a3f0a67d20c9ad285"
+    },
+    {
+      "path": ".github/workflows/review-autofix.yml",
+      "blob": "5793c79a48e403ef86706636a3fc67af6e89ba4e"
+    },
+    {
+      "path": "AGENTS.md",
+      "blob": "b9421e8e5ec0fdab117a2387cb7dafba02e8c5f4"
+    },
+    {
+      "path": "docs/release-communication.md",
+      "blob": "467b63d950a1ef8c2c22b9c14084efe6d0dd125e"
+    },
+    {
+      "path": "docs/runbooks/review-autofix.md",
+      "blob": "67521a68c2f912736aa8912863c2b578396a71a7"
+    }
+  ],
+  "type": "internal",
+  "summary": "Require reviewed customer-impact records for all autofix changes.",
+  "audience": "Maintainers of the infrastructure and Python SDK repositories.",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "endpoints": [],
+    "assessment": "Changes only PR validation, impact records and trusted autofix packaging. Application and SDK APIs, infrastructure resources and runtime permissions are unchanged."
+  },
+  "availability": "on_deploy",
+  "rollout": "The PR gate runs on pull requests; trusted autofix handling activates after merge into main. No infrastructure apply or package publication is performed.",
+  "data_effect": "No stored data, infrastructure resources, SDK runtime behavior or processing results change.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal release validation and authoring change; no API or application behavior changes.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}

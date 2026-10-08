@@ -23,6 +23,9 @@ def entry(slug="author-entry"):
         "availability": "on_deploy", "rollout": "Available after deployment; timing is unverified.",
         "data_effect": "No processing rerun or stored-data migration.", "dependencies": [],
         "notice_url": "", "notice_date": "", "effective_date": "",
+        "developer_notice": {"publish": True, "reason": "Restores authorized evidence access.",
+                             "summary": "Authorized job evidence remains readable.", "action": "",
+                             "availability": "", "data_effect": ""},
     }
 
 
@@ -33,7 +36,11 @@ class ImpactPolicyTests(unittest.TestCase):
         self.assertEqual(impact.enabled(profile), required)
         if required:
             self.assertIn("Customer impact recorded", profile["required_completion_checks"])
-            workflow = ".github/workflows/" + ("ci.yml" if profile["kind"] == "ios" else "tests.yml")
+            workflows = [path for path, checks in profile["ci_workflows"].items()
+                         if checks.get("Customer impact recorded") == impact.TARGET]
+            self.assertEqual(len(workflows), 1)
+            workflow = workflows[0]
+            self.assertTrue((ROOT / workflow).is_file())
             self.assertEqual(autofix.ci.target_for(profile, workflow, "Customer impact recorded"), impact.TARGET)
             self.assertIn("fetch-depth: 0 # pinned impact base", (ROOT / ".github/workflows/review-autofix.yml").read_text())
 
