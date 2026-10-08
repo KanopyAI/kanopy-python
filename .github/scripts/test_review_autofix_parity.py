@@ -31,6 +31,7 @@ class ReportCoreParityTests(unittest.TestCase):
         for name, old, new in [
             (parity.CONTROLLER, "MAX_ATTEMPTS = 3", "MAX_ATTEMPTS = 30"),
             (parity.CONTROLLER, "def package(args):", "def removed_package(args):"),
+            (parity.CONTROLLER, "class MissingRegressionTest(ValueError):", "class RemovedRegressionTest(ValueError):"),
             (".github/prompts/review-autofix.schema.json", '"type": "array"', '"type": "string"'),
         ]:
             with self.subTest(name=name, old=old):

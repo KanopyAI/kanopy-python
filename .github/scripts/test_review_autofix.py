@@ -506,6 +506,48 @@ class PatchTests(BackendPolicyFixture, unittest.TestCase):
     def test_annotated_node_reaches_publisher_as_retryable_validation_failure(self):
         self.exercise_annotated_test_report("tests/test_example.py::test_example — timed out")
 
+    def exercise_missing_regression(self, *, deleted=False):
+        args, directory = self.setup_package()
+        if deleted:
+            (self.root / "tests/test_example.py").unlink()
+        else:
+            # Listing an existing test in the report is not a changed regression.
+            autofix.git(self.root, "checkout", "--", "tests/test_example.py")
+        with patch.object(autofix.project, "verify") as verify:
+            with self.assertRaisesRegex(ValueError, "Reviewer fixes must include a regression test"):
+                autofix.package(args)
+            verify.assert_not_called()
+        artifact = directory / "artifact"
+        failure = json.loads((artifact / "validation-failure.json").read_text())
+        self.assertIn("Reviewer fixes must include a regression test", failure["error"])
+        self.assertIn("+value = 2", failure["patch"])
+        for name in ("change.patch", "report.json", "packaging-failure.json"):
+            self.assertFalse((artifact / name).exists())
+        state = self.publish_failure(directory)
+        self.assertTrue(state["retryable_validation"])
+        self.assertEqual(state["validation_failure"], failure)
+
+        # The next completion event must reserve a new attempt and hand the
+        # missing-test error and rejected patch back to the agent.
+        gh = FakeGitHub()
+        gh.found[0]["key"] = "key1"
+        state["fingerprint"] = autofix.fingerprint(gh.pr["head"]["sha"], gh.found)
+        gh.comments = [{"id": 3, "user": {"login": "github-actions[bot]"},
+                        "body": autofix.claim_body(state, "Failed validation")}]
+        retry_directory = Path(self.temp.name) / "retry"
+        with patch.dict(os.environ, {"GITHUB_RUN_ID": "run2", "HAS_OPENAI_KEY": "true",
+                                    "HAS_PUSH_TOKEN": "true"}):
+            autofix.prepare(gh, SimpleNamespace(number=268, directory=str(retry_directory), dry_run=False))
+        context = json.loads((retry_directory / "context.json").read_text())
+        self.assertEqual(context["state"]["attempt"], 2)
+        self.assertEqual(context["previous_validation_failure"], failure)
+
+    def test_unchanged_regression_is_rejected_and_next_attempt_gets_diagnostics(self):
+        self.exercise_missing_regression()
+
+    def test_deleted_regression_is_rejected_and_next_attempt_gets_diagnostics(self):
+        self.exercise_missing_regression(deleted=True)
+
     def publish_failure(self, directory, error=None):
         gh = FakeGitHub()
         state = {"run_id": "run1", "status": "running", "keys": ["key1"],

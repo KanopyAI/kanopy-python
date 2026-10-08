@@ -34,6 +34,10 @@ class InvalidTestSelector(ValueError):
     """An agent report needs correction before independent tests can run."""
 
 
+class MissingRegressionTest(ValueError):
+    """A reviewer fix needs a changed regression before it can be verified."""
+
+
 class GitHub:
     def __init__(self, repo, token):
         self.repo = repo
@@ -309,7 +313,7 @@ def validate_report(report, keys, manual_keys=()):
 
 def requires_regression(report, state):
     # CI formatting/build fixes can be verified by rerunning the failing check.
-    # Reviewer-reported behavior bugs still require a changed regression test.
+    # All reviewer fixes, including type-only fixes, require a changed test.
     return any(f["status"] == "fixed" and f["key"] not in state.get("ci_keys", [])
                for f in report["findings"])
 
@@ -404,13 +408,16 @@ def package_verified(args):
     if fixed:
         changed_tests = [p for p in paths if is_test_file(p) and (root / p).is_file()]
         regression = requires_regression(report, context["state"])
-        if regression and not changed_tests:
-            raise ValueError("Reviewer fixes must include a regression test")
         # Always run each changed regression module, even if the agent omitted it.
         report["tests"] = list(dict.fromkeys([*report["tests"], *changed_tests]))
         before = git(root, "diff", "--cached", "--binary")
         validation_log = directory / "validation.log"
         try:
+            if regression and not changed_tests:
+                raise MissingRegressionTest(
+                    "Reviewer fixes must include a regression test: add or update a test file "
+                    "matching project.test_paths, including for type-only fixes. Listing an "
+                    "unchanged test or running an ad hoc compiler check does not satisfy this requirement.")
             tests = test_arguments(root, report["tests"], allow_empty=not regression)
             with project.capture_validation(validation_log):
                 findings = context.get("findings", [])
@@ -418,7 +425,8 @@ def package_verified(args):
                     project.verify(root, tests, paths, PROFILE,
                                    findings=impact.application_findings(findings))
                 impact.check(root, report, context["state"], PROFILE)
-        except (InvalidTestSelector, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        except (MissingRegressionTest, InvalidTestSelector,
+                subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             # A failed patch is evidence for another bounded attempt, never a
             # publishable artifact. Keep the candidate as it was before testing.
             artifact = directory / "artifact"

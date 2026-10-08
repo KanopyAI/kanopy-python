@@ -19,7 +19,9 @@ Run selected pytest modules and every changed regression module, then Ruff check
 The trusted policy is `.github/review-autofix.json`. The fixer may change only its
 listed source/test/documentation paths. CI, dependency manifests, AGENTS.md,
 conftest.py, quarantine files, symlinks, and submodules need manual work. Reviewer bug fixes
-must include a changed regression test. CI-only repairs can use the existing
+must include a changed regression test, including type-only fixes. An unchanged
+test or an ad hoc compiler check does not meet that requirement; persist a
+meaningful regression that the configured test runner executes. CI-only repairs can use the existing
 failing check, which the trusted verifier reruns; unsupported environments are reported for follow-up.
 The workflow never merges, deploys, applies infrastructure, or publishes releases.
 
@@ -46,6 +48,11 @@ Diagnostic budgets include JSON/HTML escaping, so Unicode-heavy patches remain
 within GitHub comment limits. Only matching finding snapshots reuse that evidence. On the
 next poll, a fresh checkout receives the previous failure and candidate patch as
 context for a corrected attempt. This does not reset the three-attempt budget.
+Missing or deleted regression tests use this same retry path: the next attempt
+receives the rejected patch and the requirement to add or update a test. Protected
+path changes and other packaging policy violations still stop for manual work.
+Failures already recorded by older controllers keep their recorded disposition;
+after this controller is merged, use the explicit retry dispatch below when needed.
 
 ## One-time setup
 

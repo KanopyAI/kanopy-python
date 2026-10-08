@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ".github/review-autofix-core.json"
 CONTROLLER = ".github/scripts/review_autofix.py"
 SYMBOLS = (
-    "MAX_ATTEMPTS", "TEST_SELECTOR_PATTERN", "InvalidTestSelector",
+    "MAX_ATTEMPTS", "TEST_SELECTOR_PATTERN", "InvalidTestSelector", "MissingRegressionTest",
     "test_arguments", "package", "package_verified", "check_packaging_failure", "validate_patch",
 )
 FILES = (

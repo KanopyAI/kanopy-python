@@ -1,0 +1,58 @@
+{
+  "id": "autofix-regression-recovery",
+  "source_digest": "d402e7d61b4cf8fcd089868870f7a6d773d1b825e413e85d0bb9130abb065685",
+  "source_files": [
+    {
+      "path": ".github/prompts/review-autofix.md",
+      "blob": "a1df1fac78f4dc5f7287116f4e1b3b2065ac9f82"
+    },
+    {
+      "path": ".github/review-autofix-core.json",
+      "blob": "00e86fa15df329ee410215f9ca14057751768014"
+    },
+    {
+      "path": ".github/scripts/review_autofix.py",
+      "blob": "ca0ba828356d91347567c9cbf4076e2159e6ba1a"
+    },
+    {
+      "path": ".github/scripts/review_autofix_parity.py",
+      "blob": "23e9d65070065c4842a3373afd0ea94500bc1bc2"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix.py",
+      "blob": "c3a43e13381944ac7ca6888c782adf75db639c60"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_parity.py",
+      "blob": "47bc65c9e743fc2ec76e4eea443b6a1a5a2e6812"
+    },
+    {
+      "path": "docs/runbooks/review-autofix.md",
+      "blob": "94decd533711ec7f740ed11478e20ebc282d1ea5"
+    }
+  ],
+  "type": "internal",
+  "summary": "Lets review autofix correct a missing regression test on its next bounded attempt.",
+  "audience": "Repository maintainers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "Only the review autofix controller, its agent instructions, regression tests, shared-core fingerprints and operator documentation change. A reviewer fix without an added or modified regression test is still rejected before independent verification or publication, but its bounded diagnostic and candidate patch now reach the next attempt. Type-only reviewer findings explicitly require persistent test coverage. The existing three-attempt cap, opt-out handling, protected paths, publisher credentials and promotion fix-PR routing remain unchanged. No application requests, authentication, permissions, links, scopes, pagination, exports, downloads, storage policy or feature flags change. SDK method signatures, client retries, supported Python versions and package publication workflows are untouched.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "Applies to new controller runs after this change is merged into the default main branch. Previously recorded terminal failures retain their disposition and may need an explicit retry; the retry still counts against the existing three-attempt cap. Live recovery has not been verified. This companion is based on the pending shared-report-core adoption PR #14; no SDK package publication is required for the controller change.",
+  "data_effect": "Existing and newly processed job results are unchanged. No customer data migration or processing rerun is required. Web, mobile-web, embeds and native iOS behavior are unchanged; this change has no TestFlight or App Store release.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal review automation recovery with no customer-facing API or processing change.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
