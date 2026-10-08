@@ -304,4 +304,4 @@ jobs:
 env:
   REVIEW_AUTOFIX_POLICY_ROOT: ${{ github.workspace }}/control
   REVIEW_CONTROL_DIRECTORY: ${{ github.workspace }}/engine/.github/scripts
-  AUTOFIX_ENGINE_SHA: '1d2b14e04f21217d88862be0868efbb2eb4bb553'
+  AUTOFIX_ENGINE_SHA: 'e05ce6fb1ded05b71c15dab18eb036525abdb939'

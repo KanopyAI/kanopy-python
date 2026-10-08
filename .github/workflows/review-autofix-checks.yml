@@ -6,6 +6,7 @@ on:
       - '.github/review-autofix.json'
       - '.github/autofix-engine.json'
       - '.github/workflows/review-autofix*.yml'
+      - '.github/workflows/promotion-path.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,13 +24,13 @@ jobs:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: KanopyAI/kanopy-autofix
-        ref: 1d2b14e04f21217d88862be0868efbb2eb4bb553
+        ref: e05ce6fb1ded05b71c15dab18eb036525abdb939
         token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
         path: engine
         persist-credentials: false
     - name: Check pins, profile and caller contract without executing caller code
       env:
-        ENGINE_SHA: 1d2b14e04f21217d88862be0868efbb2eb4bb553
+        ENGINE_SHA: e05ce6fb1ded05b71c15dab18eb036525abdb939
         POLICY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: |
         python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA" --policy-sha "$POLICY_SHA"

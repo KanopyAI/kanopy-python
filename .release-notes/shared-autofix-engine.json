@@ -1,10 +1,10 @@
 {
   "id": "shared-autofix-engine",
-  "source_digest": "9e5d91621f850fde1fc64e4251e47729e2822b92c56fbdca6febfaacdc01064b",
+  "source_digest": "47f35f8170a57b653772b708cede0c36859d2a42fcef4382de39de6b08478b87",
   "source_files": [
     {
       "path": ".github/autofix-engine.json",
-      "blob": "b8edea6a6e4046c8426cece7622349485623fd80"
+      "blob": "c96b3f44d6bb47bf2b948ec329bb7366422ee5c1"
     },
     {
       "path": ".github/prompts/review-autofix.md",
@@ -76,15 +76,15 @@
     },
     {
       "path": ".github/workflows/review-autofix-checks.yml",
-      "blob": "2965119f5a6690f59fc7a28343ca8504d284a06d"
+      "blob": "81975cb536fc7d61c2618dd2b2a0aee0be460b58"
     },
     {
       "path": ".github/workflows/review-autofix-update.yml",
-      "blob": "4fea8a04037ccdc38c9208216f04f9c16066aea7"
+      "blob": "84e06c48bc11f8a075daa92233e044283d6c4604"
     },
     {
       "path": ".github/workflows/review-autofix.yml",
-      "blob": "66b6696ccd702d5ad4bc634c5bba76965b913213"
+      "blob": "2dfea9353b0ee4e9fca8c007f36f5090cf231473"
     },
     {
       "path": "AGENTS.md",
@@ -96,7 +96,7 @@
     },
     {
       "path": "docs/runbooks/review-autofix.md",
-      "blob": "e7e57423e112fc11165effdd10617e9b699ee997"
+      "blob": "8dee4a58d59ced0326deae859233881320fbfb6b"
     }
   ],
   "type": "internal",
@@ -112,7 +112,8 @@
   "rollout": "The pinned engine activates for subsequent runs after this migration merges into the default branch. Existing terminal attempts and human pauses are not reset. Future automatic update PRs require a tested central release promoted to stable and normal consumer review. No application deployment, infrastructure apply or SDK package publication is performed by this change.",
   "data_effect": "Existing and newly processed results are unchanged. No customer data migration or processing rerun is required. Web, mobile web, embeds and native iOS behavior are unchanged; no TestFlight or App Store release is involved.",
   "dependencies": [
-    "Read access to the private KanopyAI/kanopy-autofix engine for the repository automation credential."
+    "Read access to the private KanopyAI/kanopy-autofix engine for the repository automation credential.",
+    "Engine-update publishing requires Contents, Pull requests and Workflows write access on the updater credential."
   ],
   "notice_url": "",
   "notice_date": "",

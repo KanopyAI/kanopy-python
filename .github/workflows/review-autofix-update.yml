@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: KanopyAI/kanopy-autofix
-          ref: 1d2b14e04f21217d88862be0868efbb2eb4bb553
+          ref: e05ce6fb1ded05b71c15dab18eb036525abdb939
           token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
           path: engine
           persist-credentials: false
@@ -39,5 +39,5 @@ jobs:
           persist-credentials: false
       - name: Open an update PR
         env:
-          GH_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN }}
+          GH_TOKEN: ${{ secrets.AUTOFIX_UPDATE_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
         run: python3 engine/scripts/update_consumer.py --root control --candidate candidate

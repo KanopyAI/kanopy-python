@@ -53,6 +53,10 @@ context for a corrected attempt. This does not reset the three-attempt budget.
 2. Store `OPENAI_API_KEY` and `REVIEW_FIXER_TOKEN` as repository Actions secrets.
    The GitHub token needs Contents and Pull requests read/write access to this
    repository. Keep both values out of chat and version control.
+   Configure `AUTOFIX_UPDATE_TOKEN` with Contents, Pull requests and Workflows
+   write access for engine-update PRs. If omitted, the updater uses
+   `REVIEW_FIXER_TOKEN`, which then also needs Workflows write. Classic PATs need
+   `repo` and `workflow` scopes. See Shared engine and updates for engine-read access.
 3. Optionally set `REVIEW_AUTOFIX_MODEL` to an API model available to the OpenAI
    project; otherwise the Codex Action uses its default.
 4. Run **Actions → Review autofix → Run workflow** with an optional PR number and
@@ -149,6 +153,12 @@ existing `REVIEW_FIXER_TOKEN`. The credential needs read access to the private
 engine repository. Every checkout disables credential persistence, and downloads
 finish before PR dependencies or tests execute. The model and verifier receive
 neither credential. Publication runs on a fresh runner.
+
+The updater alone uses `AUTOFIX_UPDATE_TOKEN` (falling back to `REVIEW_FIXER_TOKEN`).
+That token needs Contents, Pull requests and Workflows write access because update
+PRs change `.github/workflows/*`; see [GitHub's workflow permission requirements](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).
+Using a separate updater token lets the fixer keep its narrower publication
+permissions. Engine checkout still uses the separate read credential described above.
 
 After central tests and a frontend dry-run, a maintainer promotes a merged engine
 commit to the central `stable` channel. The weekly **Update autofix engine** job
