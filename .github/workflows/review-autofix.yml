@@ -53,6 +53,11 @@ jobs:
           if [ -n "$PR_NUMBER" ]; then args+=(--number "$PR_NUMBER"); fi
           if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
           python3 .github/scripts/review_autofix.py scan "${args[@]}"
+      - name: Verify publisher credential before starting model work
+        if: steps.scan.outputs.matrix != '[]' && !inputs.dry_run
+        env:
+          REVIEW_FIXER_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN }}
+        run: python3 .github/scripts/review_autofix_access.py
 
   fix:
     needs: discover
@@ -123,6 +128,14 @@ jobs:
       - name: Install bounded Codex execution adapter
         if: steps.prepare.outputs.ready == 'true'
         run: python3 control/.github/scripts/review_autofix_runner.py patch-action "$GITHUB_WORKSPACE/codex-action"
+      - name: Preserve runner DNS before dropping privileges
+        if: steps.prepare.outputs.ready == 'true'
+        # Upstream drop-sudo can break systemd-resolved's service sockets.
+        # Use the runner's existing upstream DNS, preserving all privilege drops.
+        # Configure before the action removes sudo; no model or PR code runs here.
+        run: |
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 control/.github/scripts/review_autofix_dns.py configure
+          python3 control/.github/scripts/review_autofix_dns.py check
       - name: Investigate and fix findings
         if: steps.prepare.outputs.ready == 'true'
         uses: ./codex-action
@@ -137,6 +150,9 @@ jobs:
           effort: high
           sandbox: workspace-write
           safety-strategy: drop-sudo
+      - name: Verify DNS remains available after Codex
+        if: always() && steps.prepare.outputs.ready == 'true'
+        run: python3 control/.github/scripts/review_autofix_dns.py check
       - name: Independently run tests and package the patch
         if: steps.prepare.outputs.ready == 'true'
         # No GitHub or push token is passed to code/tests from the PR.

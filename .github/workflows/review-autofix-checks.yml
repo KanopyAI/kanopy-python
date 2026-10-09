@@ -43,7 +43,26 @@ jobs:
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: '24'
+      - name: Use existing upstream DNS and stop the local resolver
+        # Reproduce the DNS dependency failure without a model/API call.
+        # DNS and uploads must work even with the local resolver unavailable.
+        run: |
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 .github/scripts/review_autofix_dns.py configure
+          sudo systemctl stop systemd-resolved
+          python3 .github/scripts/review_autofix_dns.py check
       - name: Reproduce inherited-stream hang and verify bounded recovery
         # Fake Codex only: no API key or model calls. Linux also exercises the
         # official privilege-drop path; macOS drops sudo earlier in the action.
         run: python3 .github/scripts/test_review_autofix_runner.py --action-path codex-action drop-sudo
+      - name: Verify DNS after the production privilege drop
+        run: |
+          if sudo -n true 2>/dev/null; then echo 'Sudo must remain disabled'; exit 1; fi
+          if pgrep -x systemd-resolve >/dev/null; then echo 'Test requires the local resolver to be stopped'; exit 1; fi
+          python3 .github/scripts/review_autofix_dns.py check | tee dns-regression.txt
+      - name: Upload an artifact with the local resolver stopped and sudo disabled
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: review-autofix-dns-regression
+          path: dns-regression.txt
+          if-no-files-found: error
+          retention-days: 1
