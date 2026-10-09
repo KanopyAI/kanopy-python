@@ -1,26 +1,26 @@
 {
   "id": "autofix-impact-rollout",
-  "source_digest": "6ffdc4e17df8b9dec3e4563308b168d7109f52899043ff95a223b873fd977b97",
+  "source_digest": "57268ef012cb112cf6a4d2dd76cda9ba5f5abefc0e2fe30c6e5d27cb08e4d795",
   "source_files": [
     {
+      "path": ".github/autofix-engine.json",
+      "blob": "e94fcf0f60dbe488f2661b7d54fcd6b77d8ad843"
+    },
+    {
       "path": ".github/prompts/review-autofix.md",
-      "blob": "cdcffb98fcf56bcb4028cf099ffa7e4dcd56ff0b"
+      "blob": "deleted"
     },
     {
       "path": ".github/prompts/review-autofix.schema.json",
-      "blob": "3fbc5791d31ffed833777dedab30ac13fa260564"
+      "blob": "deleted"
     },
     {
       "path": ".github/release-notes-engine.json",
       "blob": "d7ecaed8db619f2f111203b9e60b5f8097fede29"
     },
     {
-      "path": ".github/review-autofix-core.json",
-      "blob": "e452b2e8939e1eb41d23484183a525627acf7d20"
-    },
-    {
       "path": ".github/review-autofix.json",
-      "blob": "2d04eb7844c4115fb161d72c2d67b7081de99ac3"
+      "blob": "e08b39f06039fa7341ce21c88806bfd1b239c8ae"
     },
     {
       "path": ".github/scripts/release_notes.py",
@@ -32,19 +32,27 @@
     },
     {
       "path": ".github/scripts/review_autofix.py",
-      "blob": "fb8e1a583997d321fc633777ec4f9724cdfad97c"
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/review_autofix_impact.py",
-      "blob": "c53ae9759347eb86270411d576b09cc1149f4eaa"
+      "path": ".github/scripts/review_autofix_access.py",
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/review_autofix_parity.py",
-      "blob": "92053495065bcde919ebf863bb14532b64fb4961"
+      "path": ".github/scripts/review_autofix_ci.py",
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/review_autofix_readiness.py",
-      "blob": "ae33961ece10c173a78eacdbb4255a80d69b5b34"
+      "path": ".github/scripts/review_autofix_dns.py",
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/scripts/review_autofix_project.py",
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/scripts/review_autofix_runner.py",
+      "blob": "deleted"
     },
     {
       "path": ".github/scripts/test_release_notes.py",
@@ -52,19 +60,23 @@
     },
     {
       "path": ".github/scripts/test_review_autofix.py",
-      "blob": "b76aa5f2809d45a5720847b43608335a5066ada2"
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/test_review_autofix_impact.py",
-      "blob": "7dda8a833adf7a16bd9cef3bc4b2cd0147e3390c"
+      "path": ".github/scripts/test_review_autofix_access.py",
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/test_review_autofix_parity.py",
-      "blob": "0056732e48a9137b83a29cf2a791aab75e0df8c1"
+      "path": ".github/scripts/test_review_autofix_ci.py",
+      "blob": "deleted"
     },
     {
-      "path": ".github/scripts/test_review_autofix_readiness.py",
-      "blob": "e04857b51159ff9aa5b93c4380b13439e5cf213a"
+      "path": ".github/scripts/test_review_autofix_dns.py",
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_runner.py",
+      "blob": "deleted"
     },
     {
       "path": ".github/workflows/customer-impact.yml",
@@ -72,38 +84,45 @@
     },
     {
       "path": ".github/workflows/review-autofix-checks.yml",
-      "blob": "a7e0e872865db163833c3b9a3f0a67d20c9ad285"
+      "blob": "55c09353d3143aed87f6c8e681282e2477aed54e"
+    },
+    {
+      "path": ".github/workflows/review-autofix-update.yml",
+      "blob": "ad26086c59efbb0ddc9a62f5f2e38e58adb29e3d"
     },
     {
       "path": ".github/workflows/review-autofix.yml",
-      "blob": "5793c79a48e403ef86706636a3fc67af6e89ba4e"
+      "blob": "e7c832757c2830c6150c4a32061a5fe90bfc1dff"
     },
     {
       "path": "AGENTS.md",
-      "blob": "b9421e8e5ec0fdab117a2387cb7dafba02e8c5f4"
+      "blob": "2b933b935c9816123fc57ad575303dbe89c3edd9"
     },
     {
       "path": "docs/release-communication.md",
-      "blob": "467b63d950a1ef8c2c22b9c14084efe6d0dd125e"
+      "blob": "38bf68c6d645f7eec3494b0b769f8d60158392dc"
     },
     {
       "path": "docs/runbooks/review-autofix.md",
-      "blob": "67521a68c2f912736aa8912863c2b578396a71a7"
+      "blob": "8d9ffde4812958a3a342467b200c5c4fd8b7648a"
     }
   ],
   "type": "internal",
   "summary": "Require reviewed customer-impact records for all autofix changes.",
-  "audience": "Maintainers of the infrastructure and Python SDK repositories.",
+  "audience": "Python SDK repository maintainers.",
   "customer_action": "None.",
   "api": {
     "impact": "none",
     "endpoints": [],
-    "assessment": "Changes only PR validation, impact records and trusted autofix packaging. Application and SDK APIs, infrastructure resources and runtime permissions are unchanged."
+    "assessment": "Adds a read-only customer-impact gate for every PR, validating the authored change and merged candidate against the PR base. The pinned shared autofix engine requires an explicit review of every current-PR record, stamps the staged source, reruns applicable validation and verifies the records again in a fresh publisher. Historical records remain immutable. Copied controllers, prompts and tests are replaced by generated workflows pinned to the shared engine, with reviewed version-update PRs. Existing feature-branch eligibility, SDK validation, attempt limits, human pauses, DNS preservation and publisher credential checks remain in place. Engine checkout credentials are cleared before PR dependencies or code execute. SDK method signatures, requests, responses, authentication, runtime permissions, networking, retries, pagination, downloads, storage, flags, supported Python versions, processing and rerun behavior are unchanged."
   },
   "availability": "on_deploy",
-  "rollout": "The PR gate runs on pull requests; trusted autofix handling activates after merge into main. No infrastructure apply or package publication is performed.",
+  "rollout": "The PR gate runs on pull requests; the pinned shared engine and trusted impact handling activate for subsequent runs after merge into main. Existing paused and exhausted attempts retain their state. Weekly or manual engine updates require a tested central release promoted to stable and normal review of the resulting update PR. No infrastructure apply, SDK package publication or customer-notice publication is performed.",
   "data_effect": "No stored data, infrastructure resources, SDK runtime behavior or processing results change.",
-  "dependencies": [],
+  "dependencies": [
+    "Read access to the private KanopyAI/kanopy-autofix engine for the repository automation credential.",
+    "Engine-update publishing requires Contents, Pull requests and Workflows write access on the updater credential."
+  ],
   "notice_url": "",
   "notice_date": "",
   "effective_date": "",
