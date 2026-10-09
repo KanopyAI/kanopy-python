@@ -1,0 +1,8 @@
+{
+  "source": "KanopyAI/kanopy-backend",
+  "files": {
+    "release_notes.py": "c6aaf9f3d4b89760cec7bdcca18e2d7d3d6fe86650258b66db385c0b2ced1b26",
+    "release_notes_controller.py": "68bb36051a6dd5ede65aa2b5fe374b14941f6e4bd451f0b8803df598e28c4277",
+    "test_release_notes.py": "59930792e13488d62ef572f2a58453338a7007636b06b0525347df9142cc8636"
+  }
+}

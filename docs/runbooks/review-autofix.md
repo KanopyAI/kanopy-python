@@ -53,6 +53,10 @@ context for a corrected attempt. This does not reset the three-attempt budget.
 2. Store `OPENAI_API_KEY` and `REVIEW_FIXER_TOKEN` as repository Actions secrets.
    The GitHub token needs Contents and Pull requests read/write access to this
    repository. Keep both values out of chat and version control.
+   Configure `AUTOFIX_UPDATE_TOKEN` with Contents, Pull requests and Workflows
+   write access for engine-update PRs. If omitted, the updater uses
+   `REVIEW_FIXER_TOKEN`, which then also needs Workflows write. Classic PATs need
+   `repo` and `workflow` scopes. See Shared engine and updates for engine-read access.
 3. Optionally set `REVIEW_AUTOFIX_MODEL` to an API model available to the OpenAI
    project; otherwise the Codex Action uses its default.
 4. Run **Actions → Review autofix → Run workflow** with an optional PR number and
@@ -107,8 +111,8 @@ runner communication to fail with `EAI_AGAIN`. No public DNS service is introduc
 setup fails if the runner has no valid upstream servers. Sudo removal, socket
 restrictions, sandboxing, and API-key isolation remain enabled. This is a DNS
 workaround for the pinned upstream action, not a repair of its system IPC changes.
-The hosted regression stops `systemd-resolved`, executes the actual pinned
-privilege-drop path, and uploads an artifact with sudo still disabled.
+The shared engine's hosted regression stops `systemd-resolved`, executes the
+actual pinned privilege-drop path, and uploads an artifact with sudo still disabled.
 
 The pinned official Codex action runs through a trusted execution adapter. Its
 upstream `action.yml` checksum must match before the adapter changes the final
@@ -137,23 +141,98 @@ patch. Only independent policy checks and successful validation produce
 `change.patch` and `report.json`, which the fresh publisher can consume. A hard
 agent timeout stays a failed attempt under the existing three-attempt budget.
 
-## Controller tests
+## Report validation and diagnostics
 
-```bash
-python3 -m unittest discover -s .github/scripts -p 'test_review_autofix*.py' -v
-```
+The report's `tests` array accepts literal existing test files, optionally with
+pytest `::node` selectors. Put outcomes and timeout explanations in the summary
+or finding explanations. Invalid selectors fail before tests execute and retain
+the candidate patch for the existing bounded validation retry (three attempts).
 
-As in the repository's existing CI, dependency installation and test code from
-same-repository PRs are trusted to execute on the runner. Fork PRs are excluded.
-The agent is sandboxed to its source checkout, and push credentials are present
-only on the fresh publisher runner.
+Other packaging failures preserve a bounded, redacted `packaging-failure.json`.
+The publisher reports that original error instead of looking for an absent
+validated report. Policy violations and unexpected packaging errors remain
+failed attempts requiring manual follow-up. Neither diagnostic artifact permits
+publication; partial `change.patch` and `report.json` files are removed on failure.
 
-These tests cover eligibility, attempt limits, publication checks, test failure
-handling, and project-specific validation commands. They do not substitute for
-a live Codex run with the repository's configured credentials.
+## Shared engine and updates
 
-The process regression also invokes the exact pinned upstream Node wrapper with
-a fake Codex executable. It first proves that an orphan holding stdout/stderr
-hangs the caller, then verifies that the adapter preserves the final report,
-forwards logs, and stops the child. Hosted Linux tests exercise `drop-sudo`;
-the iOS job verifies the process boundary on macOS. No model call is needed.
+The controller, prompts, runner adapter and regression suite are maintained in
+[KanopyAI/kanopy-autofix](https://github.com/KanopyAI/kanopy-autofix). This repository
+keeps its policy in `.github/review-autofix.json` and an immutable engine commit in
+`.github/autofix-engine.json`. The caller workflows are generated from that engine.
+Fix shared automation bugs and add their regression tests centrally; do not restore
+local controller copies or shared-core parity manifests.
+
+Private repositories call the pinned reusable workflow. The public Python SDK
+uses a generated bootstrap from the same job definition because GitHub cannot
+call a private reusable workflow from a public repository. It downloads the same
+pinned engine without publishing private engine bundles as artifacts.
+
+Engine checkout uses `AUTOFIX_ENGINE_READ_TOKEN` when configured, otherwise the
+existing `REVIEW_FIXER_TOKEN`. The credential needs read access to the private
+engine repository. Every checkout disables credential persistence, and downloads
+finish before PR dependencies or tests execute. The model and verifier receive
+neither credential. Publication runs on a fresh runner.
+
+The updater alone uses `AUTOFIX_UPDATE_TOKEN` (falling back to `REVIEW_FIXER_TOKEN`).
+That token needs Contents, Pull requests and Workflows write access because update
+PRs change `.github/workflows/*`; see [GitHub's workflow permission requirements](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).
+Using a separate updater token lets the fixer keep its narrower publication
+permissions. Engine checkout still uses the separate read credential described above.
+
+After central tests and a frontend dry-run, a maintainer promotes a merged engine
+commit to the central `stable` channel. The weekly **Update autofix engine** job
+(or a manual dispatch) opens a normal PR with the new immutable pin, generated
+workflows and a stamped internal impact record. It never merges automatically,
+never resets attempt history, and respects a previously closed update PR. `stable`
+is used only to discover updates; live jobs execute the reviewed commit pin.
+
+Review the engine change and consumer checks before merging an update. To roll
+back, regenerate the callers and lock using a previously tested engine commit,
+add a new impact record, and review that PR normally. Configure or change local
+policy here, then regenerate using the pinned engine's `scripts/render_consumer.py`.
+Keep the generated files together; CI rejects inconsistent pins or workflows.
+
+The central README documents controller tests and Linux/macOS process regressions.
+Consumer CI validates the policy, pin and generated workflows without executing
+candidate caller scripts. Application CI and customer-impact validation remain
+required. Existing bot comments, finding fingerprints, three-attempt limits,
+opt-outs, human pauses and per-repository concurrency survive migration.
+
+## Customer-impact records travel with fixes
+
+The trusted `customer_impact.required` policy enables impact validation in all
+six autofixer repositories: backend, frontend, Powerline, iOS, infrastructure and
+the Python SDK. They use the shared autofix engine and retain their own trusted release engine;
+do not add a blanket `.release-notes/*` exception to `allowed_paths`.
+Infrastructure and SDK PRs validate against their explicit main-branch merge base
+and combined merge candidate. Their gate does not claim that infrastructure has
+been applied or that an SDK package has been published; those remain separate
+release processes. See the repository's release-communication guide.
+
+Before the model runs, the controller pins the PR head and merge base and lists
+only impact entries added by this PR. Historical entries stay immutable. A PR
+without an entry receives one deterministic allowed filename. Promotion fixes
+receive a new record against the head of their separate fix PR; an existing
+promotion release-policy failure requires manual assessment.
+
+Every published fix requires the model's explicit, head-specific review of each
+entry against the full PR delta, including the original author change. The model
+updates prose when behavior changes and records evidence when wording remains
+accurate. Only then does trusted code stamp the staged source digest and blob
+fingerprints. It validates the entry, reruns applicable application checks, and
+rejects test mutations. The clean publisher validates again, without restamping
+or executing PR scripts, and rechecks the PR base and head before pushing.
+
+`Customer impact recorded` is a required completion check and a supported CI
+repair target when this policy is enabled. A metadata-only repair runs release
+validation; a source repair also runs application validation. The optional release
+drafting bot still cannot overwrite author-written entries. Missing assessments,
+protected-file edits and invalid records produce diagnostic artifacts and no push.
+Attempts still have the same three-run budget; this change does not reset failed
+or paused PRs or declare them ready based on a previous head's green checks.
+
+Live runs use the default branch's reviewed engine pin and policy. Merging a
+migration or update there activates that version for subsequent attempts; updating
+a feature branch alone does not. Existing exhausted or needs_human attempts retain
+their state and require manual follow-up. Application deployments are unaffected.
