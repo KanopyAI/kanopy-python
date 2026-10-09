@@ -498,8 +498,9 @@ def publish(gh, args):
             root = Path(args.source)
             root.mkdir(parents=True, exist_ok=True)
             env = dict(os.environ, GH_TOKEN=os.environ["REVIEW_FIXER_TOKEN"],
-                       GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="credential.helper",
-                       GIT_CONFIG_VALUE_0="!gh auth git-credential", GIT_TERMINAL_PROMPT="0")
+                       GIT_CONFIG_COUNT="2", GIT_CONFIG_KEY_0="credential.helper", GIT_CONFIG_VALUE_0="",
+                       GIT_CONFIG_KEY_1="credential.helper", GIT_CONFIG_VALUE_1="!gh auth git-credential",
+                       GIT_TERMINAL_PROMPT="0")
             git(root, "init")
             git(root, "remote", "add", "origin", f"https://github.com/{gh.repo}.git")
             git(root, "fetch", "--depth=1", "origin", state["sha"], env=env)
