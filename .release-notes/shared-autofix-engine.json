@@ -1,6 +1,6 @@
 {
   "id": "shared-autofix-engine",
-  "source_digest": "0c867ec2ff660e23f8e25b7e358209529417b3f7f83b851034692792f154b672",
+  "source_digest": "f8265016b7a23aebff9c15f6f14b925fd61527c8064138cc26a5c0db40ca1547",
   "source_files": [
     {
       "path": ".github/autofix-engine.json",
@@ -27,7 +27,15 @@
       "blob": "deleted"
     },
     {
+      "path": ".github/scripts/review_autofix_access.py",
+      "blob": "deleted"
+    },
+    {
       "path": ".github/scripts/review_autofix_ci.py",
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/scripts/review_autofix_dns.py",
       "blob": "deleted"
     },
     {
@@ -55,7 +63,15 @@
       "blob": "deleted"
     },
     {
+      "path": ".github/scripts/test_review_autofix_access.py",
+      "blob": "deleted"
+    },
+    {
       "path": ".github/scripts/test_review_autofix_ci.py",
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/scripts/test_review_autofix_dns.py",
       "blob": "deleted"
     },
     {
@@ -96,7 +112,7 @@
     },
     {
       "path": "docs/runbooks/review-autofix.md",
-      "blob": "8dee4a58d59ced0326deae859233881320fbfb6b"
+      "blob": "8d9ffde4812958a3a342467b200c5c4fd8b7648a"
     }
   ],
   "type": "internal",
@@ -106,7 +122,7 @@
   "api": {
     "impact": "none",
     "endpoints": [],
-    "assessment": "Removes copied autofix controllers, prompts and tests in favor of an immutable private shared-engine pin. Repository policy, runner and validation choices, release-impact validation, promotion eligibility, bot-comment state, three-attempt budgets, opt-outs and fresh publication checks are preserved. The engine includes bounded recovery for missing regression tests; it does not publish untested fixes. Generated weekly update workflows open reviewable version PRs. Engine access uses a cleared checkout credential before PR dependencies or code execute; publication still runs on a separate fresh runner. No application or SDK requests, authentication, runtime permissions, links, scopes, pagination, exports, downloads, storage policy, flags, processing outputs or infrastructure resources change."
+    "assessment": "Removes copied autofix controllers, prompts and tests in favor of an immutable private shared-engine pin. Repository policy, runner and validation choices, release-impact validation, promotion eligibility, bot-comment state, three-attempt budgets, opt-outs and fresh publication checks are preserved. The engine includes bounded recovery for missing regression tests; it does not publish untested fixes. The base branch's runner DNS preservation, publisher credential preflight and inherited credential-helper cleanup remain implemented by the pinned engine, with their regression tests maintained centrally. Generated weekly update workflows open reviewable version PRs. Engine access uses a cleared checkout credential before PR dependencies or code execute; publication still runs on a separate fresh runner. No application or SDK requests, authentication, runtime permissions, links, scopes, pagination, exports, downloads, storage policy, flags, processing outputs or infrastructure resources change."
   },
   "availability": "on_deploy",
   "rollout": "The pinned engine activates for subsequent runs after this migration merges into the default branch. Existing terminal attempts and human pauses are not reset. Future automatic update PRs require a tested central release promoted to stable and normal consumer review. No application deployment, infrastructure apply or SDK package publication is performed by this change.",

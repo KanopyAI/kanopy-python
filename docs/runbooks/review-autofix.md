@@ -71,6 +71,14 @@ subscription does not fund this workflow.
 
 ## Stopping and results
 
+Live runs authenticate the saved publisher token against GitHub's read and write
+Git advertisement endpoints before reserving a model attempt. These are GET
+requests and do not change refs. A rejected token stops discovery with an explicit
+error instead of spending a model attempt and losing publication later. For a
+fine-grained token, select this repository and grant Contents and Pull requests
+read/write; verify organization approval/SSO and expiry. Publisher Git commands
+clear inherited credential helpers before selecting the saved token.
+
 - Add `auto-fix-review-skip` to a PR to prevent new attempts and publication of an
   in-progress fix when observed by the publisher. A label change cannot be atomic
   with a Git push; cancel the Actions run as well to stop an active model call.
@@ -93,6 +101,18 @@ subscription does not fund this workflow.
 - Full CI and reviews of the newly pushed commit are still required before merging.
 
 ## Codex completion and recovery
+
+On disposable GitHub-hosted Linux runners, setup copies the runner's existing
+upstream DNS configuration to `/etc/resolv.conf` and selects `files dns` for
+native hostname lookups before Codex starts. This avoids the local DNS daemon:
+the pinned action's [drop-sudo socket restriction bug](https://github.com/openai/codex-action/issues/160)
+can prevent `systemd-resolved` from restarting, causing artifact uploads and
+runner communication to fail with `EAI_AGAIN`. No public DNS service is introduced;
+setup fails if the runner has no valid upstream servers. Sudo removal, socket
+restrictions, sandboxing, and API-key isolation remain enabled. This is a DNS
+workaround for the pinned upstream action, not a repair of its system IPC changes.
+The shared engine's hosted regression stops `systemd-resolved`, executes the
+actual pinned privilege-drop path, and uploads an artifact with sudo still disabled.
 
 The pinned official Codex action runs through a trusted execution adapter. Its
 upstream `action.yml` checksum must match before the adapter changes the final
