@@ -22,9 +22,6 @@ on:
         description: Explicit failed-run retry within the existing three-attempt cap
         type: string
         default: ''
-concurrency:
-  group: ${{ inputs.dry_run && format('review-autofix-preview-{0}', github.run_id) || 'review-autofix' }}
-  cancel-in-progress: false
 permissions:
   contents: read
   actions: read
@@ -39,6 +36,9 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+      actions: read
+      checks: read
+      statuses: read
       pull-requests: read
     outputs:
       matrix: ${{ steps.scan.outputs.matrix }}
@@ -84,6 +84,13 @@ jobs:
       env:
         REVIEW_FIXER_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN }}
       run: python3 engine/.github/scripts/review_autofix_access.py
+    - name: Request initial Codex reviews
+      if: steps.scan.outputs.codex_requests != '[]' && steps.scan.outputs.codex_requests != '' && !inputs.dry_run
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REVIEW_FIXER_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN }}
+        CODEX_REQUESTS: ${{ steps.scan.outputs.codex_requests }}
+      run: python3 engine/.github/scripts/review_autofix.py request-codex-reviews --numbers "$CODEX_REQUESTS"
     defaults:
       run:
         shell: bash
@@ -92,6 +99,10 @@ jobs:
     if: needs.discover.outputs.matrix != '[]'
     runs-on: ${{ needs.discover.outputs.kind == 'ios' && 'macos-26' || 'ubuntu-latest' }}
     timeout-minutes: 90
+    concurrency:
+      group: ${{ inputs.dry_run && format('review-autofix-preview-{0}-{1}', github.run_id, matrix.pr) || format('review-autofix-pr-{0}',
+        matrix.pr) }}
+      cancel-in-progress: false
     permissions:
       contents: read
       actions: read
@@ -128,6 +139,18 @@ jobs:
         POLICY_SHA: ${{ github.workflow_sha }}
       run: python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA"
         --policy-sha "$POLICY_SHA"
+    - name: Resolve pinned release engine
+      id: release-engine
+      run: python3 engine/scripts/release_engine_pin.py --root control
+    - name: Checkout pinned release engine
+      if: steps.release-engine.outputs.sha != ''
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-release-engine
+        ref: ${{ steps.release-engine.outputs.sha }}
+        token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+        path: release-engine
+        persist-credentials: false
     - name: Fetch pinned Codex action
       if: '!inputs.dry_run'
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -207,6 +230,8 @@ jobs:
           --directory "$REVIEW_DIRECTORY" --source "$GITHUB_WORKSPACE/source"
     - name: Install bounded Codex execution adapter
       if: steps.prepare.outputs.ready == 'true'
+      env:
+        REVIEW_AUTOFIX_FALLBACK_MODEL: ${{ vars.REVIEW_AUTOFIX_FALLBACK_MODEL }}
       run: python3 engine/.github/scripts/review_autofix_runner.py patch-action "$GITHUB_WORKSPACE/codex-action"
     - name: Preserve runner DNS before dropping privileges
       if: steps.prepare.outputs.ready == 'true' && runner.os == 'Linux'
@@ -218,6 +243,7 @@ jobs:
       uses: ./codex-action
       with:
         codex-version: 0.160.0
+        codex-args: '["--json"]'
         openai-api-key: ${{ secrets.OPENAI_API_KEY }}
         working-directory: ${{ github.workspace }}/source
         prompt-file: ${{ env.REVIEW_DIRECTORY }}/prompt.md
@@ -285,6 +311,18 @@ jobs:
         POLICY_SHA: ${{ github.workflow_sha }}
       run: python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA"
         --policy-sha "$POLICY_SHA"
+    - name: Resolve pinned release engine
+      id: release-engine
+      run: python3 engine/scripts/release_engine_pin.py --root control
+    - name: Checkout pinned release engine
+      if: steps.release-engine.outputs.sha != ''
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-release-engine
+        ref: ${{ steps.release-engine.outputs.sha }}
+        token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+        path: release-engine
+        persist-credentials: false
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
       continue-on-error: true
       with:
@@ -304,4 +342,4 @@ jobs:
 env:
   REVIEW_AUTOFIX_POLICY_ROOT: ${{ github.workspace }}/control
   REVIEW_CONTROL_DIRECTORY: ${{ github.workspace }}/engine/.github/scripts
-  AUTOFIX_ENGINE_SHA: '3427b710a702c5c1fe340d6dcd529ebab167e39f'
+  AUTOFIX_ENGINE_SHA: 'b43a1d54868307fa20f4768a96adacced75d3f07'
