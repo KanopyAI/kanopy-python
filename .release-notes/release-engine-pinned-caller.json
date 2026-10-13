@@ -1,6 +1,6 @@
 {
   "id": "release-engine-pinned-caller",
-  "source_digest": "0d80f559ec97ac1120c2da9366c1d074785acdbd4bc2c39c70495a233e3bc23b",
+  "source_digest": "29605f75a10cdd7c6e7664e1d8a0570638f7193e6ec78e8e5212d149886cbdc7",
   "source_files": [
     {
       "path": ".github/release-notes-engine.json",
@@ -28,22 +28,28 @@
     },
     {
       "path": "docs/release-communication.md",
-      "blob": "b31257371b7ec904b2b86b70458336f2bbd9139b"
+      "blob": "f47d5890b2c4fc2c0b29a0fd10439c0228ccdaed"
+    },
+    {
+      "path": "tests/test_release_communication.py",
+      "blob": "c304c313c8b2a366db55e3c01feb3f072fd58c2f"
     }
   ],
   "type": "internal",
-  "summary": "Run release-note validation and drafting from the shared, pinned release engine instead of a copy kept in this repository. This public repository reads the private engine with a repository read token.",
+  "summary": "Run customer-impact validation from the shared, pinned release engine instead of a copy kept in this repository. This public repository reads the private engine with a repository read token. Document manual updates to the checkout ref and version comment.",
   "audience": "Release authors and reviewers",
   "customer_action": "None.",
   "api": {
     "impact": "none",
-    "assessment": "Changes only how release-note tooling is delivered to CI: impact checks, promotion preflight and release drafting call one versioned engine pinned by commit, with this repository's configuration read as data. Validation rules, drafting rules and published wording are unchanged. Application endpoints, authentication, permissions, processing outputs and storage are unchanged.",
+    "assessment": "The full PR removes the local release engine, controller and engine tests, and delegates feature validation and merged-candidate preflight to the pinned engine with this repository's configuration read as data. Internal CI access requires a token that can read the private engine; workflow permissions remain contents: read and checkouts do not persist credentials. SDK source and package configuration are unchanged, so client signatures, request/response behavior, authentication, permissions, scopes, retries, pagination, uploads, downloads, returned links, storage and supported Python versions are unchanged. No application feature flags or defaults change. The guide requires manual updates to the checkout ref and version comment with a reviewed impact entry.",
     "endpoints": []
   },
   "availability": "on_deploy",
-  "rollout": "Takes effect for pull requests and promotions once merged into this repository's default branch. Application deployment and package publication rules do not change.",
-  "data_effect": "None. No job data, processing outputs or published release notes change; existing impact entries remain valid.",
-  "dependencies": [],
+  "rollout": "Applies to pull requests using the updated customer-impact workflow. The private engine checkout requires RELEASE_ENGINE_READ_TOKEN or the REVIEW_FIXER_TOKEN fallback with repository read access. Fork pull requests receive no secrets and fail closed. Future engine updates require a reviewed manual ref and version-comment change with a stamped internal impact entry. Application deployment and package publication rules do not change; a merge does not establish a published SDK package.",
+  "data_effect": "None. No customer data, stored results or processing jobs change, and no processing reruns are required. Existing impact records remain in place; this change does not publish customer notices.",
+  "dependencies": [
+    "Read access to the private release engine at the pinned commit for customer-impact checks."
+  ],
   "notice_url": "",
   "notice_date": "",
   "effective_date": "",

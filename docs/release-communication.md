@@ -61,7 +61,8 @@ the existing application checks and the three-attempt budget.
 The release engine lives in [KanopyAI/kanopy-release-engine](https://github.com/KanopyAI/kanopy-release-engine). This
 repository's workflows run it from a pinned commit, never from this checkout, so a PR
 cannot change the validator that judges it. Change the engine with a PR there, then
-bump the pin here (Dependabot proposes it) with a stamped internal impact entry.
+update the checkout's `ref` and version comment here by hand, with a stamped internal
+impact entry.
 For local commands, check out the engine at that pin and point `RELEASE_ENGINE` at it:
 `gh repo clone KanopyAI/kanopy-release-engine ~/kanopy-release-engine`, then
 `git -C ~/kanopy-release-engine checkout <pin>` and
