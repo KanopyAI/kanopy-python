@@ -1,22 +1,38 @@
 {
   "id": "release-notes-confidentiality",
-  "source_digest": "691f118cb152d614ed2b738ae275954adcf34cd1029d054e631d81867eca82dd",
+  "source_digest": "8e63e2db7a2577e59dbf1bc989bca87577fa90033c284d7d644f849e83b207f8",
   "source_files": [
     {
       "path": ".github/release-notes-engine.json",
-      "blob": "0bfbe9a045bde88a5eab212efec0c9f54a15a70d"
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/release-notes-source.json",
+      "blob": "f22a189309c54371163339c8b6612f0103edc601"
     },
     {
       "path": ".github/scripts/release_notes.py",
-      "blob": "a5c87db1780b0d7544340eaaa0f196199fd9ed45"
+      "blob": "deleted"
     },
     {
       "path": ".github/scripts/release_notes_controller.py",
-      "blob": "7c6f809c03d4923f8c663b3e8718da4a58f25a2d"
+      "blob": "deleted"
     },
     {
       "path": ".github/scripts/test_release_notes.py",
-      "blob": "2aaa2ec643829a92fc13709bd2472d5d36780b8a"
+      "blob": "deleted"
+    },
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "1c8de570a246cca023f65250f7882e1a7ce6d99f"
+    },
+    {
+      "path": "docs/release-communication.md",
+      "blob": "f47d5890b2c4fc2c0b29a0fd10439c0228ccdaed"
+    },
+    {
+      "path": "tests/test_release_communication.py",
+      "blob": "c304c313c8b2a366db55e3c01feb3f072fd58c2f"
     }
   ],
   "type": "internal",

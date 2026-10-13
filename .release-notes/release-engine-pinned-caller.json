@@ -1,6 +1,6 @@
 {
   "id": "release-engine-pinned-caller",
-  "source_digest": "29605f75a10cdd7c6e7664e1d8a0570638f7193e6ec78e8e5212d149886cbdc7",
+  "source_digest": "8e63e2db7a2577e59dbf1bc989bca87577fa90033c284d7d644f849e83b207f8",
   "source_files": [
     {
       "path": ".github/release-notes-engine.json",
