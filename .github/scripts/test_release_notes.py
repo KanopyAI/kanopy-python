@@ -203,16 +203,25 @@ class RenderingTests(unittest.TestCase):
     def test_notice_cannot_describe_internal_data_preparation(self):
         leaks = ("Poles are now cleaned up before delivery.", "Duplicate trees are removed during cleanup.",
                  "Spans are manually reviewed for accuracy.", "Our team corrects wire fits.",
-                 "Results pass human-review QA.", "Clearance results are post-processed by annotators.")
+                 "Results pass human-review QA.", "Clearance results are post-processed by annotators.",
+                 "Kanopy reviews and corrects pole results prior to delivery.", "Cleans up duplicate poles.")
         for field in ("summary", "action", "availability", "data_effect"):
             for text in leaks:
                 with self.subTest(field=field, text=text), self.assertRaises(rn.DisclosureError):
                     rn.validate_entry(entry(developer_notice=developer_notice(**{field: text})), require_notice=True)
         for text in ("Pole counts in job results are more accurate; duplicate poles no longer appear.",
                      "Pole relabels made in the web app now appear in exports.",
-                     "Manually rerun affected jobs to update existing results."):
+                     "Manually rerun affected jobs to update existing results.",
+                     "Users can manually correct pole labels in the web app."):
             with self.subTest(text=text):
                 rn.validate_entry(entry(developer_notice=developer_notice(summary=text)), require_notice=True)
+        # The action field is work the customer does.
+        for text in ("Manually correct pole labels in the web app before rerunning affected jobs.",
+                     "Manually review pole labels, then rerun affected jobs.",
+                     "Perform a clean installation before retrying uploads."):
+            with self.subTest(action=text):
+                rn.validate_entry(entry(customer_action=text, developer_notice=developer_notice(action=text)),
+                                  require_notice=True)
         # Private assessment and unpublished notices may name the process.
         rn.validate_entry(entry(summary="Speed up the staff pole cleanup tool.",
                                 developer_notice=developer_notice(publish=False, summary="",
@@ -221,36 +230,52 @@ class RenderingTests(unittest.TestCase):
 
     def test_no_field_names_third_party_technology_or_pricing(self):
         leaks = ("Uses Gemini 3.6 Flash for advanced analyses.", "Records gemini-3.6-flash as the model.",
-                 "Google's Vertex AI redirects the old model ID.", "Drafts are written by GPT-4.1.",
+                 "Advanced analyses now use Google.", "Calls the google-genai client.", "Runs on Google Cloud.",
+                 "Microsoft models classify poles.", "Drafts are written by GPT-4.1.", "Release drafts now use o3.",
                  "Framewise segmentation now runs SAM3.", "Depth comes from Depth Anything.",
                  "Label maps are written to a NumPy-compatible archive.", "Clusters use HDBSCAN.",
                  "Requires a reviewed Terraform apply.", "EFS-backed jobs fall back to the S3 archive.",
-                 "PostgreSQL dispatches are serialized.", "CI uses a prebuilt Playwright image.",
+                 "Reads the s3 archive.", "PostgreSQL dispatches are serialized.", "Stores rows in MongoDB.",
+                 "CI uses a prebuilt Playwright image.", "Axios retry behavior changed.",
                  "Cost estimates use the promotional rate until it expires.",
-                 "Updates token cost estimates.", "Applies the temporary discount.")
-        notice_fields = ("reason", "summary", "action", "availability", "data_effect")
+                 "Updates token cost estimates.", "Applies the temporary discount.", "$0.30 per million tokens.")
+        fields = [("entry", f) for f in rn.PROSE_FIELDS] + [("entry", "assessment"), ("entry", "dependencies")]
+        fields += [("notice", f) for f in ("reason", *rn.NOTICE_FIELDS)]
         for text in leaks:
-            for field in (*rn.PROSE_FIELDS, "assessment", "dependencies", *notice_fields):
-                if field == "assessment":
+            for kind, field in fields:
+                if kind == "notice":
+                    record = entry(developer_notice=developer_notice(**{field: text}))
+                elif field == "assessment":
                     record = entry(api={**entry()["api"], "assessment": text}, developer_notice=developer_notice())
                 elif field == "dependencies":
                     record = entry(availability="coordinated", dependencies=[text],
                                    developer_notice=developer_notice(availability="Requires a coordinated update."))
-                elif field in notice_fields:
-                    record = entry(developer_notice=developer_notice(**{field: text}))
                 else:
                     record = entry(**{field: text}, developer_notice=developer_notice(action="Rerun affected jobs."))
-                with self.subTest(field=field, text=text), self.assertRaises(rn.DisclosureError):
+                with self.subTest(kind=kind, field=field, text=text), self.assertRaises(rn.DisclosureError):
                     rn.validate_entry(record, require_notice=True)
         for text in ("Point clouds carry an extra int32 frame_id vertex property in LAS and PLY exports.",
                      "Embed tokens survive token refresh; same scopes apply.", "Samples remain unchanged.",
+                     "Standard rate limits apply per token; API token usage is reported.",
+                     "Kanopy's standard price changes next month and customers receive a processing discount.",
                      "Supports GoPro, DJI and iPhone captures, Face ID, TestFlight and the App Store.",
+                     "Open KML exports in Google Earth; sign in with Microsoft Entra ID, Azure AD or Google Workspace.",
                      "Exports use WGS84 or NAD83 UTM in GeoJSON and KML.", "Hosts can react to release events.",
                      "Advanced analyses use an updated model; usage estimates reflect current pricing.",
                      "Requires an infrastructure update and job storage access."):
             with self.subTest(text=text):
                 rn.validate_entry(entry(summary=text, developer_notice=developer_notice(summary=text)),
                                   require_notice=True)
+
+    def test_correction_may_copy_original_assessment_but_not_leak_in_its_notice(self):
+        original = entry(summary="Uses Gemini 3.6 Flash for advanced analyses.",
+                         rollout="Requires a reviewed Terraform apply.")
+        correction = {**original, "id": "evidence-download-fix-notice", "supersedes": original["id"],
+                      "developer_notice": developer_notice(summary="Advanced analyses use an updated model.")}
+        rn.validate_entry(correction, require_notice=True)
+        correction["developer_notice"] = developer_notice(summary="Advanced analyses use Gemini.")
+        with self.assertRaises(rn.DisclosureError):
+            rn.validate_entry(correction, require_notice=True)
 
     def test_disclosure_rules_spare_entries_already_on_a_branch(self):
         # Promotion re-validates every entry since the baseline; ones written

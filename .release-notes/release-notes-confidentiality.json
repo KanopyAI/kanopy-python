@@ -1,14 +1,14 @@
 {
   "id": "release-notes-confidentiality",
-  "source_digest": "0958c9583b2db14ca39a618a6a82dc1a9c15dd9fe864b45df4217254e1d96b23",
+  "source_digest": "691f118cb152d614ed2b738ae275954adcf34cd1029d054e631d81867eca82dd",
   "source_files": [
     {
       "path": ".github/release-notes-engine.json",
-      "blob": "614743236bb840c9fc87597c6c8f59449d20bb2e"
+      "blob": "0bfbe9a045bde88a5eab212efec0c9f54a15a70d"
     },
     {
       "path": ".github/scripts/release_notes.py",
-      "blob": "bb62d3ec6719b673bebfa97026493a6b627433a2"
+      "blob": "a5c87db1780b0d7544340eaaa0f196199fd9ed45"
     },
     {
       "path": ".github/scripts/release_notes_controller.py",
@@ -16,7 +16,7 @@
     },
     {
       "path": ".github/scripts/test_release_notes.py",
-      "blob": "0fb364c88e5d29555236004746a36c5de66370ae"
+      "blob": "2aaa2ec643829a92fc13709bd2472d5d36780b8a"
     }
   ],
   "type": "internal",

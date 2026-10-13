@@ -35,40 +35,59 @@ API_PATHS = (
 # cleans or corrects data before delivery stays private; a published notice
 # states only the observable effect on delivered results.
 DATA_PREPARATION = re.compile(r"""
-    \bclean(?:ed|ing|s|[- ]?ups?)?\b
+    \bhuman[- ]in[- ]the[- ]loop\b | \b(?:annotators?|labell?ers?)\b
+  | \b(?:our|Kanopy(?:'s)?)\ (?:team|staff|analysts|experts|reviewers|specialists)\b
+  | \bKanopy\ (?:manually\ )?(?:review|correct|clean|curat|verif|check|fix|adjust|edit|validat|inspect)\w*
+  | \bwe\ (?:manually\ )?(?:review|correct|clean|curat|verif|check|fix|adjust|edit|validat|inspect)\w*
+  | \bQA\b | \bquality[- ](?:assurance|control|checks?|review)\b
+  | \bpost-?process\w* | \bbehind\ the\ scenes\b | \b(?:before|prior\ to)\ deliver\w*
+""", re.I | re.X)
+# The same words describe work customers do themselves ("Manually correct pole
+# labels in the web app"), so these only count when no customer is the subject.
+DATA_PREPARATION_WORK = re.compile(r"""
+    \bclean(?:ed|ing|s|[- ]?ups?)?\b(?!\ (?:install|reinstall|build|checkout|slate|copy))
   | \b(?:manual(?:ly)?|human|hand)[- ](?:review|correct|edit|label|annotat|verif|check|adjust|clean|curat|QA)\w*
   | \b(?:manually|by\ hand)\ (?:review|correct|edit|fix|label|annotat|verif|check|adjust|clean|curat)\w*
-  | \bhuman[- ]in[- ]the[- ]loop\b | \b(?:annotators?|labell?ers?)\b
-  | \bour\ (?:team|staff|analysts|experts|reviewers|specialists)\b
-  | \bQA\b | \bquality[- ](?:assurance|control|checks?|review)\b
-  | \bpost-?process\w* | \bbehind\ the\ scenes\b | \bbefore\ deliver\w*
 """, re.I | re.X)
+CUSTOMER_SUBJECT = re.compile(
+    r"\b(?:you|your|users?|customers?|administrators?|admins?|integrations?|crews?|operators?)\b", re.I)
+KANOPY_SUBJECT = re.compile(r"\b(?:Kanopy|we|our|staff)\b", re.I)
+IMPERATIVE = re.compile(r"(?:clean(?:[- ]?up)?|review|correct|edit|fix|label|annotate|verify|check|adjust|curate)$", re.I)
 
 # Which models, libraries and vendors Kanopy builds on stays private. No entry
 # prose names them or their pricing, including the private assessment, which
-# reviewers read in the kanopy-status draft. Open file formats and coordinate
-# standards (LAS, PLY, GeoJSON, KML, WGS84) and the devices and platforms
-# customers use themselves (GoPro, DJI, iPhone, App Store) are not vendors.
+# reviewers read in the kanopy-status draft. Open formats and standards (LAS,
+# PLY, GeoJSON, KML, WGS84, WebAuthn) and products customers use themselves
+# (GoPro, DJI, iPhone, App Store, Google Earth/Maps/Workspace, Microsoft Entra
+# ID for single sign-on) are not vendors. Extend the list when Kanopy adopts a
+# new model, library or service.
 THIRD_PARTY = re.compile(r"""
     # AI vendors, hosted models and model families
-    \b(?:OpenAI|ChatGPT|GPT(?:[- ]?\d[\w.]*)?|o\d-(?:mini|pro)|Anthropic|Claude|Gemini|Gemma|Vertex\ AI
-      |DeepMind|Bedrock|Llama|Mistral|Qwen|DeepSeek|Hugging\ ?Face|Meta\ AI|Segment[- ]Anything
-      |Depth[- ]Anything|DINO(?:v\d)?|Grounding[- ]DINO|Florence-?\d|YOLO\w*|Mask2Former|Detectron\w*
-      |MiDaS|ZoeDepth|VGGT|MASt3R|DUSt3R|COLMAP|OpenMVS|Metashape|Pix4D|RealityCapture)\b
-  | \b(?-i:SAM|DA)\ ?\d(?:\.\d)?\b | \b(?-i:SAM)\b | \b(?-i:Pi3|HF)\b
-    # Third-party libraries, frameworks and runtimes
-  | \b(?:PyTorch|TensorFlow|ONNX|TensorRT|CUDA|cuDNN|NumPy|SciPy|scikit[- ]learn|sklearn|pandas|HDBSCAN
-      |Open3D|PDAL|laspy|GDAL|pyproj|OpenCV|FFmpeg|ffprobe|Pillow|Celery|Redis|Postgre(?:SQL|s)|PostGIS
-      |SQLModel|SQLAlchemy|Alembic|FastAPI|Pydantic|Uvicorn|Gunicorn|boto3|Vite|Three\.js|deck\.gl
-      |Mapbox|MapLibre|Leaflet|Cesium|Potree|Playwright|Docker|Kubernetes|Terraform|nginx|Envoy|loky|joblib)\b
-  | \b(?-i:torch|React)\b
-    # Hosting, infrastructure and SaaS vendors
+    \b(?:OpenAI|ChatGPT|GPT(?:[- ]?\d[\w.]*)?|Anthropic|Claude|Gemini|Gemma|Vertex\ AI|DeepMind|Bedrock
+      |Llama|Mistral|Qwen|DeepSeek|Meta\ AI|Segment[- ]Anything|Depth[- ]Anything|Grounding[- ]DINO
+      |DINO(?:v\d)?|Florence-?\d|YOLO\w*|Mask2Former|Detectron\w*|MiDaS|ZoeDepth|VGGT|MASt3R|DUSt3R)\b
+  | \bhugging[\ _-]?face\w* | \bgoogle[-.]genai\b | \bgenai\b
+  | \b(?-i:SAM|DA)\ ?\d(?:\.\d)?\b | \b(?-i:SAM|Pi3|HF)\b | \b(?-i:o[1-9])(?:-(?:mini|pro))?\b
+    # Cloud, hosting, infrastructure and SaaS vendors
+  | \bGoogle\b(?!\ (?:Workspace|Earth|Maps?)\b)(?:\ Cloud)? | \bGCP\b
+  | \bMicrosoft\b(?!\ Entra\b) | \bAzure\b(?!\ (?:AD|Active\ Directory)\b)
   | \b(?:AWS|Amazon|CloudFront|Fargate|MediaConvert|Glacier|Sentry|WorkOS|Vercel|GoDaddy|SendGrid|Mailgun
-      |Postmark|Twilio|Datadog|Vanta|Cloudflare|Supabase|Firebase|Heroku|Netlify|Azure\ OpenAI)\b
-  | \b(?-i:S3|ECS|EFS|EC2|ECR|SES|SQS|Lambda|RDS)\b
-    # Vendor pricing
-  | \bpromo(?:tional)?\b | \bdiscount\w* | \bper[- ](?:million\ )?tokens?\b
-  | \btokens?\ (?:cost|pric|rate|usage|spend)\w* | \b(?:list|standard|vendor|provider)\ (?:pric|rate)\w*
+      |Postmark|Twilio|Datadog|Vanta|Cloudflare|Supabase|Firebase|Heroku|Netlify|S3|EFS|EC2|ECR|ECS|SQS|RDS)\b
+  | \b(?-i:SES|Lambda)\b
+    # Third-party libraries, frameworks, databases and runtimes
+  | \b(?:PyTorch\w*|TensorFlow|onnx\w*|TensorRT|CUDA|cuDNN|NumPy|SciPy|scikit[- ]learn|sklearn|pandas|Numba
+      |HDBSCAN|FAISS|Open3D|trimesh|PDAL|laspy|GDAL|pyproj|OpenCV|FFmpeg|ffprobe|Pillow|moviepy|decord
+      |COLMAP|pycolmap|Ceres|pyceres|OpenMVS|Metashape|Pix4D|RealityCapture|safetensors|einops|matplotlib
+      |Celery|Redis|Postgre(?:SQL|s)|PostGIS|psycopg\w*|MySQL|MongoDB|SQLite|SQLModel|SQLAlchemy|Alembic
+      |FastAPI|Pydantic|Uvicorn|Gunicorn|slowapi|httpx|boto3|Vite|Three\.js|deck\.gl|Axios|GSAP|html2canvas
+      |jsPDF|Tailwind|lucide|mp4box|Mapbox|MapLibre|Leaflet|Cesium|Potree|Playwright|Docker|Kubernetes
+      |Terraform|nginx|Envoy|loky|joblib)\b
+  | \b(?-i:torch|React)\b
+    # Vendor pricing for the services above (Kanopy's own prices are fine)
+  | \bpromo(?:tional)?\ (?:rate|pric)\w* | \b(?:temporary|promotional|introductory|provider|vendor|model)\ discounts?\b
+  | \bper[- ](?:(?:million|thousand|1[MK])\ )?(?:input\ |output\ )?tokens?\ (?:cost|pric|rate)\w*
+  | \bper\ (?:million|thousand|1[MK])\ (?:input\ |output\ )?tokens\b
+  | \btokens?\ (?:cost|pric|spend)\w* | \b(?:provider|vendor|model)\ (?:pric\w*|rates?\b|costs?\b)
   | \bprovider\ model\b
 """, re.I | re.X)
 PROSE_FIELDS = ("summary", "audience", "customer_action", "rollout", "data_effect")
@@ -79,6 +98,19 @@ class DisclosureError(ValueError):
     """Entry prose reveals internal data preparation or third-party technology."""
 
 
+def data_preparation(text, *, customer_action=False):
+    """First phrase describing internal data preparation, if any."""
+    if match := DATA_PREPARATION.search(text):
+        return match
+    for match in DATA_PREPARATION_WORK.finditer(text):
+        sentence = re.split(r"[.;:!?]\s", text[:match.start()])[-1]
+        # A customer action may instruct: "Manually correct pole labels ...".
+        instruction = customer_action and not sentence.strip() and IMPERATIVE.search(match.group())
+        if not instruction and (not CUSTOMER_SUBJECT.search(sentence) or KANOPY_SUBJECT.search(sentence)):
+            return match
+    return None
+
+
 def check_disclosure(entry):
     """Run on newly written entries only, so entries already on a branch still promote."""
     notice = entry.get("developer_notice")
@@ -86,6 +118,10 @@ def check_disclosure(entry):
     prose += [(f"dependencies[{i}]", d) for i, d in enumerate(entry["dependencies"])]
     if notice:
         prose += [(f"developer_notice.{f}", notice[f]) for f in ("reason", *NOTICE_FIELDS)]
+    if "supersedes" in entry:
+        # A correction must copy the original's private assessment verbatim;
+        # only its new notice is checked.
+        prose = [(f, t) for f, t in prose if f.startswith("developer_notice.")]
     for field, text in prose:
         if match := THIRD_PARTY.search(text):
             raise DisclosureError(
@@ -93,7 +129,7 @@ def check_disclosure(entry):
                 "describe Kanopy's own capability instead")
     if notice and notice["publish"]:
         for field in NOTICE_FIELDS:
-            if match := DATA_PREPARATION.search(notice[field]):
+            if match := data_preparation(notice[field], customer_action=field == "action"):
                 raise DisclosureError(
                     f"Developer notice {field} describes internal data preparation ({match.group()!r}); "
                     "state only the observable effect on delivered results")
