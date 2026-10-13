@@ -92,8 +92,15 @@ clear inherited credential helpers before selecting the saved token.
   A failed local validation preserves bounded diagnostics and a candidate patch
   for another attempt on the next poll. These retries share the three-attempt cap.
   Agent/setup failures and cancelled runs are not retried for the same snapshot.
-  The full lifecycle is serialized, with up to two different PRs fixed
-  in parallel. Each fixer job has a 90-minute timeout.
+  Each discovery batch starts up to six independent PR pipelines. Each PR
+  publishes immediately after its own validation, while its complete lifecycle
+  holds the per-PR lock. Within a PR, up to six isolated agents investigate
+  separate finding groups; a coordinator combines their candidates before the
+  existing independent checks and fresh publisher. Findings on the same file
+  stay together. One worker round still consumes one PR attempt. Set repository
+  variable `REVIEW_AUTOFIX_MAX_WORKERS=1` to disable worker fan-out (default 6,
+  allowed 1–6). Worker execution shares a 15-minute budget inside the existing
+  30-minute agent deadline. Each fixer job retains its 90-minute timeout.
 - Inputs include inline review threads and current-head Actions failures selected
   by `ci_workflows` in the trusted policy. Deployment/release workflows, cancelled
   jobs, external providers, and summary-only reviewer comments need manual triage.
