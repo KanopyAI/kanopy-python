@@ -1,0 +1,54 @@
+{
+  "id": "parallel-review-autofix",
+  "source_digest": "ee86c7216244107118a176d2ce00aa5cba0319600bc83f91f218f3ae9bf7ca31",
+  "source_files": [
+    {
+      "path": ".github/autofix-engine.json",
+      "blob": "a57f8a9418e60d527fe2ab9dfe9fcf7b4a237cd8"
+    },
+    {
+      "path": ".github/workflows/review-autofix-checks.yml",
+      "blob": "d3a374268d1edf021aad72041246b0566499181f"
+    },
+    {
+      "path": ".github/workflows/review-autofix-pr.yml",
+      "blob": "75d3d5dfa7c81be86ff1b30bdfa9e5cd93014c6e"
+    },
+    {
+      "path": ".github/workflows/review-autofix-update.yml",
+      "blob": "d945ab3320bcfbe43bbd43a28d789b7709cb3218"
+    },
+    {
+      "path": ".github/workflows/review-autofix.yml",
+      "blob": "0e0f62ca13b56397a918acf7710a0607222cd205"
+    },
+    {
+      "path": "docs/runbooks/review-autofix.md",
+      "blob": "019b12a13aea952b7adb6de933ff48270c22732f"
+    }
+  ],
+  "type": "internal",
+  "summary": "Runs independent pull-request repair pipelines with parallel agents for separate fixes.",
+  "audience": "Repository maintainers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "Only internal repair workflows, their pinned controller revision and operator guidance change. Each pull request can finish independently. Separate finding groups are investigated in isolated checkouts and combined before independent regression checks and one publication step. Application code, API requests and responses, authentication, authorization, links, scopes, pagination, downloads, storage retention, flags and processing outputs are unchanged.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "Active for new repair runs after this update merges into the default branch. Existing runs retain their pinned revision. Previous attempt history and manual pauses are preserved. The higher concurrency can increase internal compute consumption. No application deployment, infrastructure apply or package publication is required.",
+  "data_effect": "Existing data and newly processed results are unchanged. Web, mobile and native client behavior is unchanged. No client release, data migration or reprocessing is required.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal review automation scheduling and execution change with no customer-visible behavior change.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
