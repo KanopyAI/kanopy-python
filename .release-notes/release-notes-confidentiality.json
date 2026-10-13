@@ -1,0 +1,46 @@
+{
+  "id": "release-notes-confidentiality",
+  "source_digest": "0958c9583b2db14ca39a618a6a82dc1a9c15dd9fe864b45df4217254e1d96b23",
+  "source_files": [
+    {
+      "path": ".github/release-notes-engine.json",
+      "blob": "614743236bb840c9fc87597c6c8f59449d20bb2e"
+    },
+    {
+      "path": ".github/scripts/release_notes.py",
+      "blob": "bb62d3ec6719b673bebfa97026493a6b627433a2"
+    },
+    {
+      "path": ".github/scripts/release_notes_controller.py",
+      "blob": "7c6f809c03d4923f8c663b3e8718da4a58f25a2d"
+    },
+    {
+      "path": ".github/scripts/test_release_notes.py",
+      "blob": "0fb364c88e5d29555236004746a36c5de66370ae"
+    }
+  ],
+  "type": "internal",
+  "summary": "Keep internal data review, cleanup and correction, and the third-party models, libraries and vendors Kanopy uses, out of release notes.",
+  "audience": "Release authors and reviewers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "Changes only release-note drafting instructions and impact-entry validation: published notice text may no longer describe internal data review, cleanup or correction, and no field of a new entry may name third-party models, libraries, vendors or their pricing. Application endpoints, authentication, permissions, processing outputs and storage policy are unchanged.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "After merge into each repository's default branch together with the companion engine copies. Application deployment and package publication rules do not change.",
+  "data_effect": "No existing job data or processing outputs change; no rerun is required. Already-published release wording and existing impact entries are not rewritten or re-checked.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal release-authoring safeguard; no API or application behavior changes.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}

@@ -31,6 +31,72 @@ API_PATHS = (
     "app/services/jobs/", "app/services/outputs/", "worker/storage_tasks.py",
     "openapi", "docs/api", "scripts/export_openapi",
 )
+# Customers receive finished results. Whether, how and how much Kanopy reviews,
+# cleans or corrects data before delivery stays private; a published notice
+# states only the observable effect on delivered results.
+DATA_PREPARATION = re.compile(r"""
+    \bclean(?:ed|ing|s|[- ]?ups?)?\b
+  | \b(?:manual(?:ly)?|human|hand)[- ](?:review|correct|edit|label|annotat|verif|check|adjust|clean|curat|QA)\w*
+  | \b(?:manually|by\ hand)\ (?:review|correct|edit|fix|label|annotat|verif|check|adjust|clean|curat)\w*
+  | \bhuman[- ]in[- ]the[- ]loop\b | \b(?:annotators?|labell?ers?)\b
+  | \bour\ (?:team|staff|analysts|experts|reviewers|specialists)\b
+  | \bQA\b | \bquality[- ](?:assurance|control|checks?|review)\b
+  | \bpost-?process\w* | \bbehind\ the\ scenes\b | \bbefore\ deliver\w*
+""", re.I | re.X)
+
+# Which models, libraries and vendors Kanopy builds on stays private. No entry
+# prose names them or their pricing, including the private assessment, which
+# reviewers read in the kanopy-status draft. Open file formats and coordinate
+# standards (LAS, PLY, GeoJSON, KML, WGS84) and the devices and platforms
+# customers use themselves (GoPro, DJI, iPhone, App Store) are not vendors.
+THIRD_PARTY = re.compile(r"""
+    # AI vendors, hosted models and model families
+    \b(?:OpenAI|ChatGPT|GPT(?:[- ]?\d[\w.]*)?|o\d-(?:mini|pro)|Anthropic|Claude|Gemini|Gemma|Vertex\ AI
+      |DeepMind|Bedrock|Llama|Mistral|Qwen|DeepSeek|Hugging\ ?Face|Meta\ AI|Segment[- ]Anything
+      |Depth[- ]Anything|DINO(?:v\d)?|Grounding[- ]DINO|Florence-?\d|YOLO\w*|Mask2Former|Detectron\w*
+      |MiDaS|ZoeDepth|VGGT|MASt3R|DUSt3R|COLMAP|OpenMVS|Metashape|Pix4D|RealityCapture)\b
+  | \b(?-i:SAM|DA)\ ?\d(?:\.\d)?\b | \b(?-i:SAM)\b | \b(?-i:Pi3|HF)\b
+    # Third-party libraries, frameworks and runtimes
+  | \b(?:PyTorch|TensorFlow|ONNX|TensorRT|CUDA|cuDNN|NumPy|SciPy|scikit[- ]learn|sklearn|pandas|HDBSCAN
+      |Open3D|PDAL|laspy|GDAL|pyproj|OpenCV|FFmpeg|ffprobe|Pillow|Celery|Redis|Postgre(?:SQL|s)|PostGIS
+      |SQLModel|SQLAlchemy|Alembic|FastAPI|Pydantic|Uvicorn|Gunicorn|boto3|Vite|Three\.js|deck\.gl
+      |Mapbox|MapLibre|Leaflet|Cesium|Potree|Playwright|Docker|Kubernetes|Terraform|nginx|Envoy|loky|joblib)\b
+  | \b(?-i:torch|React)\b
+    # Hosting, infrastructure and SaaS vendors
+  | \b(?:AWS|Amazon|CloudFront|Fargate|MediaConvert|Glacier|Sentry|WorkOS|Vercel|GoDaddy|SendGrid|Mailgun
+      |Postmark|Twilio|Datadog|Vanta|Cloudflare|Supabase|Firebase|Heroku|Netlify|Azure\ OpenAI)\b
+  | \b(?-i:S3|ECS|EFS|EC2|ECR|SES|SQS|Lambda|RDS)\b
+    # Vendor pricing
+  | \bpromo(?:tional)?\b | \bdiscount\w* | \bper[- ](?:million\ )?tokens?\b
+  | \btokens?\ (?:cost|pric|rate|usage|spend)\w* | \b(?:list|standard|vendor|provider)\ (?:pric|rate)\w*
+  | \bprovider\ model\b
+""", re.I | re.X)
+PROSE_FIELDS = ("summary", "audience", "customer_action", "rollout", "data_effect")
+NOTICE_FIELDS = ("summary", "action", "availability", "data_effect")
+
+
+class DisclosureError(ValueError):
+    """Entry prose reveals internal data preparation or third-party technology."""
+
+
+def check_disclosure(entry):
+    """Run on newly written entries only, so entries already on a branch still promote."""
+    notice = entry.get("developer_notice")
+    prose = [(f, entry[f]) for f in PROSE_FIELDS] + [("api.assessment", entry["api"]["assessment"])]
+    prose += [(f"dependencies[{i}]", d) for i, d in enumerate(entry["dependencies"])]
+    if notice:
+        prose += [(f"developer_notice.{f}", notice[f]) for f in ("reason", *NOTICE_FIELDS)]
+    for field, text in prose:
+        if match := THIRD_PARTY.search(text):
+            raise DisclosureError(
+                f"{field} names a third-party model, library, vendor or its pricing ({match.group()!r}); "
+                "describe Kanopy's own capability instead")
+    if notice and notice["publish"]:
+        for field in NOTICE_FIELDS:
+            if match := DATA_PREPARATION.search(notice[field]):
+                raise DisclosureError(
+                    f"Developer notice {field} describes internal data preparation ({match.group()!r}); "
+                    "state only the observable effect on delivered results")
 
 
 def string(enum=None):
@@ -102,7 +168,7 @@ def validate_entry(entry, *, release=False, today=None, require_notice=False):
         raise ValueError("Missing source digest: run the stamp command")
     if any(not re.fullmatch(r"[a-f0-9]{40}|deleted", f["blob"]) for f in entry["source_files"]):
         raise ValueError("Invalid source file fingerprint; run stamp")
-    for field in ("summary", "audience", "customer_action", "rollout", "data_effect"):
+    for field in PROSE_FIELDS:
         if not entry[field].strip():
             raise ValueError(f"{field} must explain the impact, including explicit 'None' where appropriate")
     if len(entry["api"]["assessment"].strip()) < 20:
@@ -150,6 +216,8 @@ def validate_entry(entry, *, release=False, today=None, require_notice=False):
             raise ValueError("Explain the migration or action for this planned change")
         if release and (today or date.today()) < end:
             raise ValueError(f"Cannot deploy before announced effective date {end}")
+    if require_notice:
+        check_disclosure(entry)
     return entry
 
 

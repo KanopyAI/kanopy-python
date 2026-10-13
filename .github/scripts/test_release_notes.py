@@ -200,6 +200,67 @@ class RenderingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 rn.validate_entry(entry(developer_notice=notice))
 
+    def test_notice_cannot_describe_internal_data_preparation(self):
+        leaks = ("Poles are now cleaned up before delivery.", "Duplicate trees are removed during cleanup.",
+                 "Spans are manually reviewed for accuracy.", "Our team corrects wire fits.",
+                 "Results pass human-review QA.", "Clearance results are post-processed by annotators.")
+        for field in ("summary", "action", "availability", "data_effect"):
+            for text in leaks:
+                with self.subTest(field=field, text=text), self.assertRaises(rn.DisclosureError):
+                    rn.validate_entry(entry(developer_notice=developer_notice(**{field: text})), require_notice=True)
+        for text in ("Pole counts in job results are more accurate; duplicate poles no longer appear.",
+                     "Pole relabels made in the web app now appear in exports.",
+                     "Manually rerun affected jobs to update existing results."):
+            with self.subTest(text=text):
+                rn.validate_entry(entry(developer_notice=developer_notice(summary=text)), require_notice=True)
+        # Private assessment and unpublished notices may name the process.
+        rn.validate_entry(entry(summary="Speed up the staff pole cleanup tool.",
+                                developer_notice=developer_notice(publish=False, summary="",
+                                    reason="Internal cleanup tooling; delivered results unchanged.")),
+                          require_notice=True)
+
+    def test_no_field_names_third_party_technology_or_pricing(self):
+        leaks = ("Uses Gemini 3.6 Flash for advanced analyses.", "Records gemini-3.6-flash as the model.",
+                 "Google's Vertex AI redirects the old model ID.", "Drafts are written by GPT-4.1.",
+                 "Framewise segmentation now runs SAM3.", "Depth comes from Depth Anything.",
+                 "Label maps are written to a NumPy-compatible archive.", "Clusters use HDBSCAN.",
+                 "Requires a reviewed Terraform apply.", "EFS-backed jobs fall back to the S3 archive.",
+                 "PostgreSQL dispatches are serialized.", "CI uses a prebuilt Playwright image.",
+                 "Cost estimates use the promotional rate until it expires.",
+                 "Updates token cost estimates.", "Applies the temporary discount.")
+        notice_fields = ("reason", "summary", "action", "availability", "data_effect")
+        for text in leaks:
+            for field in (*rn.PROSE_FIELDS, "assessment", "dependencies", *notice_fields):
+                if field == "assessment":
+                    record = entry(api={**entry()["api"], "assessment": text}, developer_notice=developer_notice())
+                elif field == "dependencies":
+                    record = entry(availability="coordinated", dependencies=[text],
+                                   developer_notice=developer_notice(availability="Requires a coordinated update."))
+                elif field in notice_fields:
+                    record = entry(developer_notice=developer_notice(**{field: text}))
+                else:
+                    record = entry(**{field: text}, developer_notice=developer_notice(action="Rerun affected jobs."))
+                with self.subTest(field=field, text=text), self.assertRaises(rn.DisclosureError):
+                    rn.validate_entry(record, require_notice=True)
+        for text in ("Point clouds carry an extra int32 frame_id vertex property in LAS and PLY exports.",
+                     "Embed tokens survive token refresh; same scopes apply.", "Samples remain unchanged.",
+                     "Supports GoPro, DJI and iPhone captures, Face ID, TestFlight and the App Store.",
+                     "Exports use WGS84 or NAD83 UTM in GeoJSON and KML.", "Hosts can react to release events.",
+                     "Advanced analyses use an updated model; usage estimates reflect current pricing.",
+                     "Requires an infrastructure update and job storage access."):
+            with self.subTest(text=text):
+                rn.validate_entry(entry(summary=text, developer_notice=developer_notice(summary=text)),
+                                  require_notice=True)
+
+    def test_disclosure_rules_spare_entries_already_on_a_branch(self):
+        # Promotion re-validates every entry since the baseline; ones written
+        # before a rule existed must still promote.
+        old = entry(rollout="Requires a reviewed Terraform apply.",
+                    developer_notice=developer_notice(summary="Duplicate poles are now cleaned up."))
+        rn.validate_entry(old, release=True)
+        with self.assertRaises(rn.DisclosureError):
+            rn.validate_entry(old, require_notice=True)
+
     def test_upcoming_never_changes_released_history(self):
         old = {"releases": [{"version": "2026.10.1", "date": "2026-10-01", "changes": []}]}
         upcoming, released = rn.update_public(manifest(), {"releases": []}, old)
@@ -614,6 +675,34 @@ class ControllerSafetyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "changed during drafting"):
                 controller.draft_pr(gh, 1)
             write.assert_not_called()
+
+    def test_notice_describing_data_preparation_gets_one_fixed_redraft(self):
+        pr = {"state": "open", "title": "Merge duplicate poles", "body": "",
+              "head": {"sha": "a" * 40, "ref": "fix/poles", "repo": {"full_name": "KanopyAI/kanopy-backend"}},
+              "base": {"sha": "b" * 40, "ref": "dev"}}
+        leaky = entry(developer_notice=developer_notice(summary="Duplicate poles are now cleaned up before delivery."))
+        neutral = entry(developer_notice=developer_notice(summary="Pole counts in job results are more accurate."))
+        for drafts, written in (([leaky, neutral], True), ([leaky, leaky], False)):
+            with self.subTest(written=written):
+                gh = rn.GitHub("KanopyAI/kanopy-backend", "unused")
+                with patch.object(gh, "api", side_effect=[pr, {"commit": {"sha": "b" * 40}}, pr]), \
+                        patch.object(rn, "fetch_sha"), patch.object(rn, "git", return_value="b" * 40), \
+                        patch.object(rn, "changed_paths", return_value=["app/services/poles.py"]), \
+                        patch.object(rn, "source_diff", return_value="safe diff"), \
+                        patch.object(rn, "source_digest", return_value="a" * 64), \
+                        patch.object(rn, "source_files", return_value=[]), \
+                        patch.object(controller, "draft_entry", side_effect=drafts) as draft, \
+                        patch.object(controller, "write_commit", return_value=None) as write, \
+                        patch.dict(os.environ, {"OPENAI_API_KEY": "fake", "RELEASE_NOTES_TOKEN": "fake"}):
+                    if written:
+                        controller.draft_pr(gh, 1)
+                        self.assertIn("Pole counts", write.call_args.kwargs["files"][".release-notes/pr-1.json"])
+                    else:
+                        with self.assertRaises(rn.DisclosureError):
+                            controller.draft_pr(gh, 1)
+                        write.assert_not_called()
+                self.assertEqual(draft.call_args_list[0].args[3], "")
+                self.assertIn("internal data preparation", draft.call_args_list[1].args[3])
 
     def test_repeated_draft_event_is_a_noop_and_keeps_review_edits(self):
         target = rn.GitHub(controller.TARGET_REPO, "unused")

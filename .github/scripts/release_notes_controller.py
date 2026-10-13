@@ -79,6 +79,30 @@ codes ARE appropriate when developers need them to integrate or act. Never hide
 a restriction, required action, data compatibility issue or effective date for
 brevity. Preserve evidenced notice links/dates in their structured fields.
 
+Data preparation is confidential. Kanopy reviews, cleans and corrects tree,
+pole, wire/span and clearance results before customers receive them (review
+and cleanup tools, staff roles, merges/splits, noise or duplicate removal,
+refits, reruns). Never reveal in the notice that this happens, how much data it
+touches or how it works, and never imply delivered results were imperfect
+before delivery. Changes to these internal steps are publish=false unless
+customers can observe the outcome. When the delivered data or API does change
+(a field, classification, count, measurement, unit, export or webhook changes,
+or existing results change or need a rerun), publish only that outcome in
+neutral product terms, without the process behind it. This never permits hiding
+a required action, data compatibility issue or changed meaning of a result.
+
+Third-party technology is confidential. In every field, including the private
+assessment, reason and dependencies, never name the AI vendors, hosted or open
+models, libraries, frameworks, databases, cloud services or other vendors Kanopy
+builds on (for example an LLM provider, a segmentation or depth model, a
+point-cloud library, a cloud storage or compute service, infrastructure
+tooling), their model IDs or versions, or their pricing, discounts or token
+rates. Describe Kanopy's own capability instead: 'advanced analyses use an
+updated model', 'usage estimates reflect current pricing', 'requires an
+infrastructure update', 'job storage'. Open file formats and coordinate
+standards (LAS, PLY, GeoJSON, KML, WGS84, NAD83) and the devices and platforms
+customers use themselves (GoPro, DJI, iPhone, App Store) may be named.
+
 Examples (illustrative only; do not copy unsupported facts):
 - Sidebar spacing fix: publish=false; reason='No effect on API integrations.'
 - Download authorization regression fix: summary='API keys can download job
@@ -87,15 +111,27 @@ Examples (illustrative only; do not copy unsupported facts):
   when processing finishes.'; action empty for this optional addition.
 - Processing units change: explain the changed public field and units, the
   migration and whether existing results need reprocessing; omit the algorithm.
+- Staff cleanup tool for duplicate poles: publish=false; reason='Internal data
+  preparation; delivered results are unchanged.'
+- Duplicate-pole handling that lowers pole counts in exports: summary='Pole
+  counts in job results are more accurate; duplicate poles no longer appear.'
+  and data_effect states which jobs change. Never 'are now cleaned up'.
 Return the requested JSON record only.
+"""
+REDRAFT = """
+Your previous draft was rejected for disclosing confidential detail: {error}
+If developer_notice described internal data review, cleanup or correction,
+state only the observable effect on delivered results, or set publish=false if
+customers observe none. If any field named a third-party model, library, vendor
+or its pricing, describe Kanopy's own capability without the name.
 """
 
 
-def draft_entry(context, model, token):
+def draft_entry(context, model, token, redraft=""):
     request = urllib.request.Request(
         "https://api.openai.com/v1/responses",
         data=json.dumps({"model": model, "store": False,
-                         "instructions": PROMPT,
+                         "instructions": PROMPT + (REDRAFT.format(error=redraft) if redraft else ""),
                          "input": json.dumps(context), "max_output_tokens": 3000,
                          "text": {"format": {"type": "json_schema", "name": "customer_impact",
                                              "strict": True, "schema": notes.ENTRY_SCHEMA}}}).encode(),
@@ -179,10 +215,19 @@ def draft_pr(gh, number, *, dry_run=False):
         print(json_text({"pr": number, "head": head, "source_digest": digest,
                          "files": paths, "diff_bytes": len(diff.encode()), "would_write": entry_path}))
         return
-    entry = draft_entry(context, os.environ.get("RELEASE_NOTES_MODEL") or "gpt-4.1",
-                        os.environ["OPENAI_API_KEY"])
-    entry.update(id=f"pr-{number}", source_digest=digest, source_files=notes.source_files(base, head))
-    notes.validate_entry(entry, require_notice=True)
+    model = os.environ.get("RELEASE_NOTES_MODEL") or "gpt-4.1"
+    redraft = ""
+    for attempt in range(2):
+        entry = draft_entry(context, model, os.environ["OPENAI_API_KEY"], redraft)
+        entry.update(id=f"pr-{number}", source_digest=digest, source_files=notes.source_files(base, head))
+        try:
+            notes.validate_entry(entry, require_notice=True)
+            break
+        except notes.DisclosureError as error:
+            # One retry naming the rejected term; a second slip needs a human-written entry.
+            if attempt:
+                raise
+            redraft = str(error)
     # The only model-derived write is this fixed data path. No model output is
     # interpolated into shell commands, branch names or API endpoints.
     publisher = notes.GitHub(gh.repo, os.environ["RELEASE_NOTES_TOKEN"])
