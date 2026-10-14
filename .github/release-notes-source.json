@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "repository": "KanopyAI/kanopy-python",
+  "base_branch": "main",
+  "promotion_branches": [],
+  "preflight_pull_requests": true
+}
