@@ -1,0 +1,46 @@
+{
+  "id": "autofix-engine-b43a1d548683",
+  "source_digest": "60a9d7cae65eb81e2c1033f09bae792d17f3bc1d9fcb364bd30badc10ad9477e",
+  "source_files": [
+    {
+      "path": ".github/autofix-engine.json",
+      "blob": "8f31d52fbaf59b8190d9053d10164f35f2f469da"
+    },
+    {
+      "path": ".github/workflows/review-autofix-checks.yml",
+      "blob": "142118ef806ba48d84b3e2db85c5ba4970b6d08b"
+    },
+    {
+      "path": ".github/workflows/review-autofix-update.yml",
+      "blob": "837d5963045d631c5ca454f695319496c35e3581"
+    },
+    {
+      "path": ".github/workflows/review-autofix.yml",
+      "blob": "8af37315d70fbd0e1ddea4237bd68220f4d5d2ca"
+    }
+  ],
+  "type": "internal",
+  "summary": "Updates the shared review-autofix engine to b43a1d548683.",
+  "audience": "Repository maintainers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "This PR updates only the pinned automation engine and generated caller workflows. Application source, API requests, authentication, authorization, links, scopes, pagination, downloads, storage, flags and processing outputs are unchanged. The central engine release and this generated diff require normal review before merging.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "The engine version applies after merging this update into the default branch. No application deployment, infrastructure apply or SDK publication is implied.",
+  "data_effect": "Existing and newly processed results are unchanged. No rerun or data migration is required. Web, mobile web and native iOS behavior is unchanged; no TestFlight or App Store release is involved.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal review automation version update.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
