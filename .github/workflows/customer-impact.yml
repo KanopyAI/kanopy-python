@@ -18,13 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          path: component
           fetch-depth: 0
           persist-credentials: false
+      # This repository is public, so it cannot use actions from the private
+      # engine directly. Check out the pinned engine with a read token; fork PRs
+      # receive no secrets and fail closed. Bump ref and comment together.
+      - name: Check out the pinned release engine
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: KanopyAI/kanopy-release-engine
+          ref: 7cfddb0cb29236894e86d88ceabce1ba92045ee1 # v1.0.0
+          token: ${{ secrets.RELEASE_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+          path: release-engine
+          persist-credentials: false
+      # Checks the feature diff, then the merged candidate (preflight_pull_requests
+      # in .github/release-notes-source.json). The component checkout is data only.
       - name: Validate the assessment and merged candidate
-        env:
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: |
-          python3 .github/scripts/release_notes.py check --base "$PR_BASE" --head "$PR_HEAD" --feature
-          python3 .github/scripts/release_notes.py preflight --base "$PR_BASE" --head "$PR_HEAD" --target "$PR_BASE" \
-            --run python3 -m unittest discover -s .github/scripts -p 'test_release_notes*.py' -v
+        uses: ./release-engine
+        with:
+          command: gate
+          path: component
