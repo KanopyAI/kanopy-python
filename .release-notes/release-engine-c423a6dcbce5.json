@@ -1,0 +1,34 @@
+{
+  "id": "release-engine-c423a6dcbce5",
+  "source_digest": "bc1d9b4ce3d5ae960e0b16ebda6226bc6e0f3c9730a637ab70ec019500fbb7c6",
+  "source_files": [
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "65960ae4bc9fb93cf5802ffe4a7c55035d8798db"
+    }
+  ],
+  "type": "internal",
+  "summary": "Updates the pinned customer-impact engine to c423a6dcbce5.",
+  "audience": "Repository maintainers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "endpoints": [],
+    "assessment": "This PR updates only the pinned customer-impact engine revision used by CI workflows. Application source, API requests, authentication, authorization, links, storage, flags and processing outputs are unchanged. The new engine lets a promotion pick up gate configuration fields its target does not declare yet, accepts byte-for-byte restores of rewritten historical entries, and accepts combined entries stamped against the promotion target."
+  },
+  "availability": "on_deploy",
+  "rollout": "The engine version applies to CI after this update merges. No application deployment, infrastructure apply or SDK publication is implied.",
+  "data_effect": "Existing and newly processed results are unchanged. No rerun or data migration is required.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal CI automation version update.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
