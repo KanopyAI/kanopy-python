@@ -1,10 +1,10 @@
 {
   "id": "automation-app-tokens",
-  "source_digest": "613514c6b49788ec84e1b658c02afaee436a766485880d78db62276a4de0f30f",
+  "source_digest": "10eb3a644cdbf7c5d1263e32482eb713bcc71f213c9fe350c20c6b2697f51a6c",
   "source_files": [
     {
       "path": ".github/autofix-engine.json",
-      "blob": "aaa1b2b9a71bc41c7e2aba7ec69ac40c46bef0ef"
+      "blob": "e564441e51707ce48dca4fd02a4f36acbf43676e"
     },
     {
       "path": ".github/workflows/customer-impact.yml",
@@ -12,7 +12,7 @@
     },
     {
       "path": ".github/workflows/review-autofix-checks.yml",
-      "blob": "4d0493e15a17139e95f298f95c2fa958e5e6a18c"
+      "blob": "bb3e1e14f6a9331f1b61f5653f5aeed2cd5d51a0"
     },
     {
       "path": ".github/workflows/review-autofix-pr.yml",
@@ -20,15 +20,15 @@
     },
     {
       "path": ".github/workflows/review-autofix-update.yml",
-      "blob": "e194c426f432340e7b755b950339db378b085fe3"
+      "blob": "4132264ff6d838a1669ac5787a8b3b6368cb00e4"
     },
     {
       "path": ".github/workflows/review-autofix.yml",
-      "blob": "2c308fdc93add08ff810de569fc73c344a14130b"
+      "blob": "fbc7f39bbd1a4ae465868c912ad9ba2927d476d2"
     },
     {
       "path": "docs/runbooks/review-autofix.md",
-      "blob": "3effe9df7d806459ef13bca346f0ff7eec5a7ef8"
+      "blob": "45f1d373a857adc0b1936214b600065fbd36b24e"
     }
   ],
   "type": "internal",

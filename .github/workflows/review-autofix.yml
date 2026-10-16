@@ -70,14 +70,14 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: KanopyAI/kanopy-autofix
-        ref: 362b4769f86b83af8c8202f832892784b716ed64
+        ref: 7b15bddf782197759d7bca21da949e00d727dc88
         token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
           }}
         path: engine
         persist-credentials: false
     - name: Verify engine and policy pins
       env:
-        ENGINE_SHA: 362b4769f86b83af8c8202f832892784b716ed64
+        ENGINE_SHA: 7b15bddf782197759d7bca21da949e00d727dc88
         POLICY_SHA: ${{ github.workflow_sha }}
       run: python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA"
         --policy-sha "$POLICY_SHA"
@@ -137,12 +137,12 @@ jobs:
         pr: ${{ fromJSON(needs.discover.outputs.matrix) }}
     uses: ./.github/workflows/review-autofix-pr.yml
     with:
-      engine_sha: 362b4769f86b83af8c8202f832892784b716ed64
+      engine_sha: 7b15bddf782197759d7bca21da949e00d727dc88
       policy_sha: ${{ github.workflow_sha }}
       pr_number: ${{ format('{0}', matrix.pr) }}
       kind: ${{ needs.discover.outputs.kind }}
       bot_users: ${{ needs.discover.outputs.bot_users }}
-      dry_run: ${{ inputs.dry_run }}
+      dry_run: ${{ inputs.dry_run || false }}
       retry_run_id: ${{ inputs.retry_run_id }}
     secrets: inherit
     permissions:

@@ -16,7 +16,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
-    - uses: useblacksmith/checkout@v1
+    - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a
       with:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
         path: control
@@ -36,17 +36,17 @@ jobs:
       if: steps.engine-token.outputs.token == ''
       run: echo '::warning title=Automation credential fallback::Engine checkout uses the legacy repository secret
         because the automation app token was unavailable.'
-    - uses: useblacksmith/checkout@v1
+    - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a
       with:
         repository: KanopyAI/kanopy-autofix
-        ref: 362b4769f86b83af8c8202f832892784b716ed64
+        ref: 7b15bddf782197759d7bca21da949e00d727dc88
         token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
           }}
         path: engine
         persist-credentials: false
     - name: Check pins, profile and caller contract without executing caller code
       env:
-        ENGINE_SHA: 362b4769f86b83af8c8202f832892784b716ed64
+        ENGINE_SHA: 7b15bddf782197759d7bca21da949e00d727dc88
         POLICY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: |
         python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA" --policy-sha "$POLICY_SHA"

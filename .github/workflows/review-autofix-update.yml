@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: KanopyAI/kanopy-autofix
-          ref: 362b4769f86b83af8c8202f832892784b716ed64
+          ref: 7b15bddf782197759d7bca21da949e00d727dc88
           token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
           path: engine
           persist-credentials: false
