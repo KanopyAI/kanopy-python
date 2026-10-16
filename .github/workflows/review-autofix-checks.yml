@@ -13,24 +13,40 @@ permissions:
 jobs:
   contract:
     name: Review autofix controller tests
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+    - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a
       with:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
         path: control
         persist-credentials: false
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+    - name: Mint engine read token
+      id: engine-token
+      if: vars.AUTOMATION_APP_ID != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+      with:
+        app-id: ${{ vars.AUTOMATION_APP_ID }}
+        private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+        owner: KanopyAI
+        repositories: kanopy-autofix
+        permission-contents: read
+    - name: Warn on legacy engine read credential
+      if: steps.engine-token.outputs.token == ''
+      run: echo '::warning title=Automation credential fallback::Engine checkout uses the legacy repository secret
+        because the automation app token was unavailable.'
+    - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a
       with:
         repository: KanopyAI/kanopy-autofix
-        ref: b43a1d54868307fa20f4768a96adacced75d3f07
-        token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+        ref: 7b15bddf782197759d7bca21da949e00d727dc88
+        token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
+          }}
         path: engine
         persist-credentials: false
     - name: Check pins, profile and caller contract without executing caller code
       env:
-        ENGINE_SHA: b43a1d54868307fa20f4768a96adacced75d3f07
+        ENGINE_SHA: 7b15bddf782197759d7bca21da949e00d727dc88
         POLICY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: |
         python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA" --policy-sha "$POLICY_SHA"
