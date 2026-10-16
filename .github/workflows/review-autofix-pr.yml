@@ -1,0 +1,335 @@
+name: One PR review autofix
+'on':
+  workflow_call:
+    inputs:
+      engine_sha:
+        type: string
+        required: true
+      policy_sha:
+        type: string
+        required: true
+      pr_number:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        default: true
+      retry_run_id:
+        type: string
+        default: ''
+      kind:
+        type: string
+        required: true
+      bot_users:
+        type: string
+        default: ''
+    secrets:
+      AUTOMATION_APP_PRIVATE_KEY:
+        required: false
+      AUTOFIX_ENGINE_READ_TOKEN:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+      REVIEW_FIXER_TOKEN:
+        required: false
+permissions:
+  contents: read
+env:
+  REVIEW_AUTOFIX_POLICY_ROOT: ${{ github.workspace }}/control
+  REVIEW_CONTROL_DIRECTORY: ${{ github.workspace }}/engine/.github/scripts
+jobs:
+  fix:
+    runs-on: ${{ inputs.kind == 'ios' && 'macos-26' || 'ubuntu-latest' }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+      statuses: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+      REVIEW_DIRECTORY: ${{ github.workspace }}/review-context-${{ inputs.pr_number }}
+      REVIEW_AUTOFIX_BOT_USERS: ${{ inputs.bot_users }}
+    steps:
+    - name: Checkout trusted caller policy
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ inputs.policy_sha }}
+        path: control
+        persist-credentials: false
+    - name: Mint engine read token
+      id: engine-token
+      if: vars.AUTOMATION_APP_ID != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+      with:
+        app-id: ${{ vars.AUTOMATION_APP_ID }}
+        private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+        owner: KanopyAI
+        repositories: kanopy-autofix,kanopy-release-engine
+        permission-contents: read
+        skip-token-revoke: true
+    - name: Warn on legacy engine read credential
+      if: steps.engine-token.outputs.token == ''
+      run: echo '::warning title=Automation credential fallback::Engine checkout uses the legacy repository secret
+        because the automation app token was unavailable.'
+    - name: Checkout pinned autofix engine
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-autofix
+        ref: ${{ inputs.engine_sha }}
+        token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
+          }}
+        path: engine
+        persist-credentials: false
+    - name: Verify engine and policy pins
+      env:
+        ENGINE_SHA: ${{ inputs.engine_sha }}
+        POLICY_SHA: ${{ inputs.policy_sha }}
+      run: python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA"
+        --policy-sha "$POLICY_SHA"
+    - name: Resolve pinned release engine
+      id: release-engine
+      run: python3 engine/scripts/release_engine_pin.py --root control
+    - name: Checkout pinned release engine
+      if: steps.release-engine.outputs.sha != ''
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-release-engine
+        ref: ${{ steps.release-engine.outputs.sha }}
+        token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
+          }}
+        path: release-engine
+        persist-credentials: false
+    - name: Revoke engine read token before PR code runs
+      if: always() && steps.engine-token.outputs.token != ''
+      env:
+        GH_TOKEN: ${{ steps.engine-token.outputs.token }}
+      run: gh api --method DELETE /installation/token --silent || echo '::warning title=Automation credential::Could
+        not revoke the engine read token early; it expires within one hour.'
+    - name: Fetch pinned Codex action
+      if: '!inputs.dry_run'
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: openai/codex-action
+        ref: 86365089eb2b84e0a8fb0717b304f8bdcb13b20e
+        path: codex-action
+        persist-credentials: false
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+      if: '!inputs.dry_run'
+      with:
+        node-version: '24'
+    - name: Check Codex actor access before reserving an attempt
+      if: '!inputs.dry_run'
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        node "$GITHUB_WORKSPACE/codex-action/dist/main.js" check-write-access \
+          --allow-bots false --allow-bot-users "$REVIEW_AUTOFIX_BOT_USERS" --allow-users ''
+    - name: Collect reviewer findings and failed CI checks
+      id: prepare
+      env:
+        GH_TOKEN: ${{ github.token }}
+        DRY_RUN: ${{ inputs.dry_run }}
+        HAS_OPENAI_KEY: ${{ secrets.OPENAI_API_KEY != '' }}
+        HAS_PUSH_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN != '' || (vars.AUTOMATION_APP_ID != '' && secrets.AUTOMATION_APP_PRIVATE_KEY
+          != '') }}
+        RETRY_RUN_ID: ${{ inputs.retry_run_id }}
+      run: |
+        args=()
+        if [ "$DRY_RUN" = true ]; then args+=(--dry-run); fi
+        if [ -n "$RETRY_RUN_ID" ]; then args+=(--retry-run-id "$RETRY_RUN_ID"); fi
+        python3 engine/.github/scripts/review_autofix.py prepare \
+          --number "$PR_NUMBER" --directory "$REVIEW_DIRECTORY" "${args[@]}"
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      if: steps.prepare.outputs.ready == 'true'
+      with:
+        ref: ${{ steps.prepare.outputs.sha }}
+        path: source
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      id: segmentation-python
+      if: steps.prepare.outputs.ready == 'true' && inputs.kind == 'powerline'
+      with:
+        python-version: '3.12'
+    - name: Remember segmentation interpreter
+      if: steps.prepare.outputs.ready == 'true' && inputs.kind == 'powerline'
+      env:
+        SEGMENTATION_PYTHON: ${{ steps.segmentation-python.outputs.python-path }}
+      run: printf 'REVIEW_SEGMENTATION_PYTHON=%s\n' "$SEGMENTATION_PYTHON" >> "$GITHUB_ENV"
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      if: steps.prepare.outputs.ready == 'true'
+      with:
+        python-version: '3.11'
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      if: steps.prepare.outputs.ready == 'true' && inputs.kind == 'python'
+      with:
+        python-version: |-
+          3.10
+          3.11
+          3.12
+          3.13
+          3.14
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
+      if: steps.prepare.outputs.ready == 'true' && inputs.kind == 'frontend'
+      with:
+        node-version: '20'
+    - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd
+      if: steps.prepare.outputs.ready == 'true' && inputs.kind == 'infra'
+      with:
+        terraform_version: 1.9.8
+        terraform_wrapper: false
+    - name: Prepare repository validation
+      if: steps.prepare.outputs.ready == 'true'
+      run: |
+        python3 engine/.github/scripts/review_autofix.py setup \
+          --directory "$REVIEW_DIRECTORY" --source "$GITHUB_WORKSPACE/source"
+    - name: Install bounded Codex execution adapter
+      if: steps.prepare.outputs.ready == 'true'
+      env:
+        REVIEW_AUTOFIX_FALLBACK_MODEL: ${{ vars.REVIEW_AUTOFIX_FALLBACK_MODEL }}
+        REVIEW_AUTOFIX_MAX_WORKERS: ${{ vars.REVIEW_AUTOFIX_MAX_WORKERS || '6' }}
+      run: python3 engine/.github/scripts/review_autofix_runner.py patch-action "$GITHUB_WORKSPACE/codex-action"
+    - name: Preserve runner DNS before dropping privileges
+      if: steps.prepare.outputs.ready == 'true' && runner.os == 'Linux'
+      run: |
+        sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT python3 engine/.github/scripts/review_autofix_dns.py configure
+        python3 engine/.github/scripts/review_autofix_dns.py check
+    - name: Investigate and fix findings
+      if: steps.prepare.outputs.ready == 'true'
+      uses: ./codex-action
+      with:
+        codex-version: 0.160.0
+        codex-args: '["--json"]'
+        openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+        working-directory: ${{ github.workspace }}/source
+        prompt-file: ${{ env.REVIEW_DIRECTORY }}/prompt.md
+        output-file: ${{ env.REVIEW_DIRECTORY }}/agent-report.json
+        output-schema-file: ${{ github.workspace }}/engine/.github/prompts/review-autofix.schema.json
+        model: ${{ vars.REVIEW_AUTOFIX_MODEL }}
+        effort: high
+        sandbox: workspace-write
+        safety-strategy: drop-sudo
+        allow-bot-users: ${{ env.REVIEW_AUTOFIX_BOT_USERS }}
+    - name: Verify DNS remains available after Codex
+      if: always() && steps.prepare.outputs.ready == 'true' && runner.os == 'Linux'
+      run: python3 engine/.github/scripts/review_autofix_dns.py check
+    - name: Independently run tests and package the patch
+      if: steps.prepare.outputs.ready == 'true'
+      run: |
+        python3 engine/.github/scripts/review_autofix.py package \
+          --directory "$REVIEW_DIRECTORY" --source "$GITHUB_WORKSPACE/source"
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always() && steps.prepare.outputs.ready == 'true'
+      with:
+        name: review-autofix-${{ inputs.pr_number }}
+        path: ${{ env.REVIEW_DIRECTORY }}/artifact/
+        if-no-files-found: error
+        retention-days: 7
+    defaults:
+      run:
+        shell: bash
+    name: fix (${{ inputs.pr_number }})
+  publish:
+    needs:
+    - fix
+    if: always() && !cancelled() && !inputs.dry_run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
+    steps:
+    - name: Checkout trusted caller policy
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ inputs.policy_sha }}
+        path: control
+        persist-credentials: false
+    - name: Mint engine read token
+      id: engine-token
+      if: vars.AUTOMATION_APP_ID != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+      with:
+        app-id: ${{ vars.AUTOMATION_APP_ID }}
+        private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+        owner: KanopyAI
+        repositories: kanopy-autofix,kanopy-release-engine
+        permission-contents: read
+    - name: Warn on legacy engine read credential
+      if: steps.engine-token.outputs.token == ''
+      run: echo '::warning title=Automation credential fallback::Engine checkout uses the legacy repository secret
+        because the automation app token was unavailable.'
+    - name: Checkout pinned autofix engine
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-autofix
+        ref: ${{ inputs.engine_sha }}
+        token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
+          }}
+        path: engine
+        persist-credentials: false
+    - name: Verify engine and policy pins
+      env:
+        ENGINE_SHA: ${{ inputs.engine_sha }}
+        POLICY_SHA: ${{ inputs.policy_sha }}
+      run: python3 engine/scripts/validate_consumer.py --root control --engine engine --engine-sha "$ENGINE_SHA"
+        --policy-sha "$POLICY_SHA"
+    - name: Resolve pinned release engine
+      id: release-engine
+      run: python3 engine/scripts/release_engine_pin.py --root control
+    - name: Checkout pinned release engine
+      if: steps.release-engine.outputs.sha != ''
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: KanopyAI/kanopy-release-engine
+        ref: ${{ steps.release-engine.outputs.sha }}
+        token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN
+          }}
+        path: release-engine
+        persist-credentials: false
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      continue-on-error: true
+      with:
+        name: review-autofix-${{ inputs.pr_number }}
+        path: result
+    - name: Mint publisher token
+      id: app-token
+      if: vars.AUTOMATION_APP_ID != ''
+      continue-on-error: true
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+      with:
+        app-id: ${{ vars.AUTOMATION_APP_ID }}
+        private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+        owner: KanopyAI
+        repositories: ${{ github.event.repository.name }}
+        permission-contents: write
+        permission-pull-requests: write
+    - name: Warn on legacy publisher credential
+      if: steps.app-token.outputs.token == ''
+      run: echo '::warning title=Automation credential fallback::Publishing uses the legacy REVIEW_FIXER_TOKEN secret
+        because the automation app token was unavailable.'
+    - name: Recheck PR, publish a tested fix, and request review
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REVIEW_FIXER_TOKEN: ${{ steps.app-token.outputs.token || secrets.REVIEW_FIXER_TOKEN }}
+        REVIEW_AUTOFIX_CREDENTIAL: ${{ steps.app-token.outputs.token != '' && 'app' || 'legacy' }}
+        CODEX_REQUEST_TOKEN: ${{ secrets.REVIEW_FIXER_TOKEN || steps.app-token.outputs.token }}
+      run: |
+        python3 engine/.github/scripts/review_autofix.py publish \
+          --number "$PR_NUMBER" --directory "$GITHUB_WORKSPACE/result" \
+          --source "$RUNNER_TEMP/publish-$PR_NUMBER"
+    defaults:
+      run:
+        shell: bash
+    name: publish (${{ inputs.pr_number }})
+concurrency:
+  group: ${{ inputs.dry_run && format('review-autofix-preview-{0}-{1}', github.run_id, inputs.pr_number) || format('review-autofix-pr-{0}',
+    inputs.pr_number) }}
+  cancel-in-progress: false

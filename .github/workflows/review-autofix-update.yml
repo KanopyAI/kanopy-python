@@ -12,7 +12,7 @@ permissions:
 jobs:
   update:
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -21,11 +21,40 @@ jobs:
           path: control
           fetch-depth: 0
           persist-credentials: false
+      # Short-lived automation app tokens, scoped per use; the legacy secrets
+      # remain a fallback during the transition.
+      - name: Mint engine read token
+        id: engine-token
+        if: vars.AUTOMATION_APP_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: KanopyAI
+          repositories: kanopy-autofix
+          permission-contents: read
+      - name: Mint update PR token
+        id: app-token
+        if: vars.AUTOMATION_APP_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AUTOMATION_APP_PRIVATE_KEY }}
+          owner: KanopyAI
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-workflows: write
+      - name: Warn on legacy automation credentials
+        if: steps.engine-token.outputs.token == '' || steps.app-token.outputs.token == ''
+        run: echo '::warning title=Automation credential fallback::The engine update uses a legacy repository secret because an automation app token was unavailable.'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: KanopyAI/kanopy-autofix
-          ref: b43a1d54868307fa20f4768a96adacced75d3f07
-          token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+          ref: 362b4769f86b83af8c8202f832892784b716ed64
+          token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
           path: engine
           persist-credentials: false
       - name: Fetch centrally approved release
@@ -33,11 +62,12 @@ jobs:
         with:
           repository: KanopyAI/kanopy-autofix
           ref: stable
-          token: ${{ secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+          token: ${{ steps.engine-token.outputs.token || secrets.AUTOFIX_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
           path: candidate
           fetch-depth: 0
           persist-credentials: false
       - name: Open an update PR
         env:
-          GH_TOKEN: ${{ secrets.AUTOFIX_UPDATE_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOFIX_UPDATE_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
+          REVIEW_AUTOFIX_CREDENTIAL: ${{ steps.app-token.outputs.token != '' && 'app' || 'legacy' }}
         run: python3 engine/scripts/update_consumer.py --root control --candidate candidate
