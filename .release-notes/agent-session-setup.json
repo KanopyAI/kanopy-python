@@ -1,0 +1,42 @@
+{
+  "id": "agent-session-setup",
+  "source_digest": "537d7f05db282c079c3c95c7d0e265703a6732e618c2c053d2b0e1285442c99c",
+  "source_files": [
+    {
+      "path": ".claude/hooks/session-start.sh",
+      "blob": "6088f514e0b030f310235a577b6a91c25a968696"
+    },
+    {
+      "path": ".claude/settings.json",
+      "blob": "abe64374ae96cd7b54dbab9ef572e8b0e6ed70f5"
+    },
+    {
+      "path": "CLAUDE.md",
+      "blob": "cd8b247314aa468e0df0c927ff4fd2e56743f152"
+    }
+  ],
+  "type": "internal",
+  "summary": "Sets up cloud coding-agent sessions to run CI's tests and release-note checks locally before pushing.",
+  "audience": "Repository maintainers and coding agents",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "Adds only coding-agent tooling: a session settings file registers a setup hook that runs solely in cloud coding-agent sessions and exits immediately elsewhere, plus an agent instructions file that imports AGENTS.md and lists CI's check commands. The hook installs the editable SDK venv with the dev extras CI's quality job installs and the release engine at the commit the workflows pin, outside the repository, so agents can run CI's checks before pushing. SDK source and published package contents are unchanged; MANIFEST.in does not include the new files. Workflows, branch rules, API requests, authentication, permissions, links, scopes, pagination, downloads, storage, flags and processing outputs are unchanged.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "Takes effect for new cloud coding-agent sessions once merged into the default branch. No deployment, infrastructure apply or package publication is involved.",
+  "data_effect": "No stored data, job results or processing outputs change; no rerun is required.",
+  "dependencies": [],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal developer tooling; no customer-visible change.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
