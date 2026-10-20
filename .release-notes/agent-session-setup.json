@@ -1,6 +1,6 @@
 {
   "id": "agent-session-setup",
-  "source_digest": "537d7f05db282c079c3c95c7d0e265703a6732e618c2c053d2b0e1285442c99c",
+  "source_digest": "0cb336521048ecab26155683ff065859b5d07390aabf6526e1480ce1bdfc221c",
   "source_files": [
     {
       "path": ".claude/hooks/session-start.sh",
@@ -8,11 +8,11 @@
     },
     {
       "path": ".claude/settings.json",
-      "blob": "abe64374ae96cd7b54dbab9ef572e8b0e6ed70f5"
+      "blob": "4098b04f894550bf5abe9081a49acf32b559b7d1"
     },
     {
       "path": "CLAUDE.md",
-      "blob": "cd8b247314aa468e0df0c927ff4fd2e56743f152"
+      "blob": "43ffd7782f017df3be71b867f644c98da9cb9aa4"
     }
   ],
   "type": "internal",
