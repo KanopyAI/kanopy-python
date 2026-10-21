@@ -1,0 +1,62 @@
+{
+  "id": "automation-app-tokens",
+  "source_digest": "10eb3a644cdbf7c5d1263e32482eb713bcc71f213c9fe350c20c6b2697f51a6c",
+  "source_files": [
+    {
+      "path": ".github/autofix-engine.json",
+      "blob": "e564441e51707ce48dca4fd02a4f36acbf43676e"
+    },
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "41dbeb1b70b5e3881400f9f0c3d3070d340da037"
+    },
+    {
+      "path": ".github/workflows/review-autofix-checks.yml",
+      "blob": "bb3e1e14f6a9331f1b61f5653f5aeed2cd5d51a0"
+    },
+    {
+      "path": ".github/workflows/review-autofix-pr.yml",
+      "blob": "1708bc5f7849bafb62b0b6d471fd9f2bbc225dfc"
+    },
+    {
+      "path": ".github/workflows/review-autofix-update.yml",
+      "blob": "4132264ff6d838a1669ac5787a8b3b6368cb00e4"
+    },
+    {
+      "path": ".github/workflows/review-autofix.yml",
+      "blob": "fbc7f39bbd1a4ae465868c912ad9ba2927d476d2"
+    },
+    {
+      "path": "docs/runbooks/review-autofix.md",
+      "blob": "45f1d373a857adc0b1936214b600065fbd36b24e"
+    }
+  ],
+  "type": "internal",
+  "summary": "Repository automation (review autofix, its controller checks, engine updates and the customer-impact engine checkout) now uses short-lived, per-run tokens from the organization automation app instead of long-lived personal automation credentials, with the previous secrets kept as a fallback for one release cycle.",
+  "audience": "Repository maintainers",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "endpoints": [],
+    "assessment": "Changes only repository automation workflows and their documentation. Each job that previously used a long-lived personal credential now mints a one-hour token scoped to the repositories and permissions it uses: read-only for the private automation engines, and contents/pull-request write (plus workflow write for engine-update PRs) for this repository or the release-status repository. The fix job revokes its read token before untrusted pull-request code runs. When the short-lived token is unavailable the job warns and uses the previous secret. Automation commits are attributed to the automation app identity, which is also trusted as a workflow actor. Application and SDK source, API requests and responses, authentication, authorization, user permissions, scopes, links, pagination, downloads, storage, flags, deployments, infrastructure resources and processing outputs are unchanged."
+  },
+  "availability": "on_deploy",
+  "rollout": "Takes effect for automation runs after this change merges into the default branch. The previous secrets stay configured as a fallback until one full review, fix, engine-update and release-drafting cycle completes without fallback warnings; removing them is a separate change. No application deployment, infrastructure apply, SDK publication, TestFlight or App Store release is involved.",
+  "data_effect": "None. Existing and newly processed results are unchanged, no customer data is accessed by these workflows, and no processing rerun or data migration is required. Web, mobile web, embeds and native iOS behavior are unchanged.",
+  "dependencies": [
+    "The organization automation app installation, its organization ID variable and private key secret.",
+    "The previous automation secrets remain configured as a fallback for one cycle.",
+    "This public repository uses the fallback secrets until the app key and ID are shared with it."
+  ],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal automation credential change with no customer-facing behavior change.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  }
+}
