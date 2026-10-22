@@ -50,13 +50,16 @@ context for a corrected attempt. This does not reset the three-attempt budget.
 ## One-time setup
 
 1. Merge the workflow into `main`, the default branch.
-2. Store `OPENAI_API_KEY` and `REVIEW_FIXER_TOKEN` as repository Actions secrets.
-   The GitHub token needs Contents and Pull requests read/write access to this
-   repository. Keep both values out of chat and version control.
-   Configure `AUTOFIX_UPDATE_TOKEN` with Contents, Pull requests and Workflows
-   write access for engine-update PRs. If omitted, the updater uses
-   `REVIEW_FIXER_TOKEN`, which then also needs Workflows write. Classic PATs need
-   `repo` and `workflow` scopes. See Shared engine and updates for engine-read access.
+2. Store `OPENAI_API_KEY` as a repository Actions secret. Pushes, PRs and
+   engine reads use one-hour tokens minted per job from the organization
+   automation app (organization variable `AUTOMATION_APP_ID`, organization secret
+   `AUTOMATION_APP_PRIVATE_KEY`); see Shared engine and updates. During the
+   transition `REVIEW_FIXER_TOKEN` (Contents and Pull requests read/write) and
+   `AUTOFIX_UPDATE_TOKEN` (also Workflows write) remain as fallbacks, and
+   `REVIEW_FIXER_TOKEN` still posts `@codex review` requests. Keep all values out
+   of chat and version control. This repository is public: organization secrets
+   and variables limited to private repositories are not visible here, so runs use
+   the fallback secrets until the app key and ID are shared with it.
 3. Optionally set `REVIEW_AUTOFIX_MODEL` to an API model available to the OpenAI
    project; otherwise the Codex Action uses its default.
 4. Run **Actions → Review autofix → Run workflow** with an optional PR number and
@@ -92,8 +95,15 @@ clear inherited credential helpers before selecting the saved token.
   A failed local validation preserves bounded diagnostics and a candidate patch
   for another attempt on the next poll. These retries share the three-attempt cap.
   Agent/setup failures and cancelled runs are not retried for the same snapshot.
-  The full lifecycle is serialized, with up to two different PRs fixed
-  in parallel. Each fixer job has a 90-minute timeout.
+  Each discovery batch starts up to six independent PR pipelines. Each PR
+  publishes immediately after its own validation, while its complete lifecycle
+  holds the per-PR lock. Within a PR, up to six isolated agents investigate
+  separate finding groups; a coordinator combines their candidates before the
+  existing independent checks and fresh publisher. Findings on the same file
+  stay together. One worker round still consumes one PR attempt. Set repository
+  variable `REVIEW_AUTOFIX_MAX_WORKERS=1` to disable worker fan-out (default 6,
+  allowed 1–6). Worker execution shares a 15-minute budget inside the existing
+  30-minute agent deadline. Each fixer job retains its 90-minute timeout.
 - Inputs include inline review threads and current-head Actions failures selected
   by `ci_workflows` in the trusted policy. Deployment/release workflows, cancelled
   jobs, external providers, and summary-only reviewer comments need manual triage.
@@ -168,15 +178,17 @@ uses a generated bootstrap from the same job definition because GitHub cannot
 call a private reusable workflow from a public repository. It downloads the same
 pinned engine without publishing private engine bundles as artifacts.
 
-Engine checkout uses `AUTOFIX_ENGINE_READ_TOKEN` when configured, otherwise the
-existing `REVIEW_FIXER_TOKEN`. The credential needs read access to the private
-engine repository. Every checkout disables credential persistence, and downloads
+Engine checkout uses a read-only automation app token scoped to the engine
+repositories, falling back to `AUTOFIX_ENGINE_READ_TOKEN` and then
+`REVIEW_FIXER_TOKEN` (a run that falls back shows an "Automation credential
+fallback" warning). The fix job revokes the app token before PR code runs. Every checkout disables credential persistence, and downloads
 finish before PR dependencies or tests execute. The model and verifier receive
 neither credential. Publication runs on a fresh runner.
 
-The updater alone uses `AUTOFIX_UPDATE_TOKEN` (falling back to `REVIEW_FIXER_TOKEN`).
-That token needs Contents, Pull requests and Workflows write access because update
-PRs change `.github/workflows/*`; see [GitHub's workflow permission requirements](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).
+The updater mints an app token scoped to this repository with Contents, Pull
+requests and Workflows write, falling back to `AUTOFIX_UPDATE_TOKEN` and then
+`REVIEW_FIXER_TOKEN`. Workflows write is needed because update PRs change
+`.github/workflows/*`; see [GitHub's workflow permission requirements](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents).
 Using a separate updater token lets the fixer keep its narrower publication
 permissions. Engine checkout still uses the separate read credential described above.
 
