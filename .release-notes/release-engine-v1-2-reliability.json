@@ -1,0 +1,44 @@
+{
+  "id": "release-engine-v1-2-reliability",
+  "type": "internal",
+  "summary": "Updates release validation to retry temporary evidence-read failures and track impact assessments by merged PR.",
+  "audience": "Repository maintainers and release operators",
+  "customer_action": "None.",
+  "api": {
+    "impact": "none",
+    "assessment": "Only CI release validation, release-draft tooling and author instructions change. Every source PR still needs an accurate impact entry. Transient reads receive bounded retries; writes, authentication failures and missing or incomplete evidence retain failure handling. Application endpoints, authorization, permissions, scopes, returned links, pagination, downloads, storage policy and runtime feature flags are unchanged.",
+    "endpoints": []
+  },
+  "availability": "on_deploy",
+  "rollout": "Takes effect when workflows use the updated pin on their branch. Application deployment, infrastructure application, SDK publication and App Store availability are not established by this tooling update.",
+  "data_effect": "Existing customer data, saved processing results and newly computed application outputs are unchanged. No customer migration, rerun or refit is required.",
+  "dependencies": [
+    "Tested kanopy-release-engine v1.2.0 at 5f52395242253fa9aa58e8524ec299a9b8b7252a"
+  ],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": false,
+    "reason": "Internal release-validation reliability and authoring policy; no integration or customer action.",
+    "summary": "",
+    "action": "",
+    "availability": "",
+    "data_effect": ""
+  },
+  "source_digest": "6c6c99844afb3588b25c86f70171467622e292f6217d5760051e60ac77db8e8e",
+  "source_files": [
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "dd924c3a501225e27155c26efe5955d541cf42c6"
+    },
+    {
+      "path": "AGENTS.md",
+      "blob": "1acf4f8d4711530ee33b1598088e89e636490693"
+    },
+    {
+      "path": "docs/release-communication.md",
+      "blob": "36cd5abef15eecf5a6e3e18666fde6e83355e9fa"
+    }
+  ]
+}
