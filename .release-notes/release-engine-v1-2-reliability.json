@@ -25,5 +25,20 @@
     "action": "",
     "availability": "",
     "data_effect": ""
-  }
+  },
+  "source_digest": "6c6c99844afb3588b25c86f70171467622e292f6217d5760051e60ac77db8e8e",
+  "source_files": [
+    {
+      "path": ".github/workflows/customer-impact.yml",
+      "blob": "dd924c3a501225e27155c26efe5955d541cf42c6"
+    },
+    {
+      "path": "AGENTS.md",
+      "blob": "1acf4f8d4711530ee33b1598088e89e636490693"
+    },
+    {
+      "path": "docs/release-communication.md",
+      "blob": "36cd5abef15eecf5a6e3e18666fde6e83355e9fa"
+    }
+  ]
 }

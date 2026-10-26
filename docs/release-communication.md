@@ -64,7 +64,7 @@ the existing application checks and the three-attempt budget.
 The release engine lives in [KanopyAI/kanopy-release-engine](https://github.com/KanopyAI/kanopy-release-engine). This
 repository's workflows run it from a pinned commit, never from this checkout, so a PR
 cannot change the validator that judges it. Change the engine with a PR there, then
-update the checkout's `ref` and version comment here by hand, with a validated internal
+update the checkout's `ref` and version comment here by hand, with a stamped internal
 impact entry.
 For local commands, check out the engine at that pin and point `RELEASE_ENGINE` at it:
 `gh repo clone KanopyAI/kanopy-release-engine ~/kanopy-release-engine`, then
@@ -85,3 +85,8 @@ The v1.2.0 release combines PR-based assessment coverage with bounded retries
 for temporary evidence-read failures. HTTP 502/503/504 while reading deployment
 history indicates unavailable evidence, not a missing assessment. Permission
 errors, missing assessments and incomplete deployment evidence still fail.
+
+During an engine-pin upgrade, validate its impact entry with both the current
+default-branch engine and the new version: trusted release drafting continues
+to use the old engine until the upgrade merges. The upgrade entry may retain
+legacy fingerprints for that transition; current validation accepts them.
