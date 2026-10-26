@@ -9,8 +9,9 @@ explicit `developer_notice` decision. Internal tooling changes use `type: intern
 Use the `ENTRY_SCHEMA` in the release engine's `scripts/release_notes.py` and
 `.release-notes/autofix-impact-rollout.json` as a complete internal example. Change
 the id to match the filename and describe the actual change; do not copy an
-internal assessment onto a customer-visible change. Initially use a 64-zero
-`source_digest` and an empty `source_files` array. The stamp command fills them.
+internal assessment onto a customer-visible change. New entries do not need
+`source_digest` or `source_files`; stamp validates the entry and removes obsolete
+fingerprints. Existing historical stamped records remain valid.
 
 Assess client method signatures, request/response behavior, authentication,
 permissions, retry/error handling, pagination, upload/download behavior and supported
@@ -44,15 +45,17 @@ Affected SDK tests, Ruff checks and package validation remain required;
 the preflight can run an optional command with `--run`, using an isolated checkout. Install any test dependencies there; common
 API and publisher tokens are removed from the test environment. The autofixer never publishes SDK packages.
 
-When main moves, a clean merge can combine source into a file blob that neither
-parent assessment covers. Reconcile main, review the combined behavior, and stamp
-again before review. Rerun preflight whenever either branch changes. Entries
-already on main are immutable; add a fresh assessment for corrections or reverts.
+Each feature or fix PR that changes source must add its own assessment, kept
+accurate as its scope changes. Coverage follows merged PRs, so two assessed PRs
+editing the same file need no combined record. Rerun preflight whenever either
+branch changes. If a change merged without an entry, add a record with
+`covers: ["#<PR number>"]` (or its commit SHA). Entries already on main remain
+immutable; add a fresh assessment for corrections or reverts.
 The `supersedes` notice mechanism is reserved for repositories with a verified
 publication baseline; use a fresh assessment here.
 
 The autofixer pins the PR head and merge base, requires an explicit review of every
-current-PR record, stamps the staged candidate, and independently validates it
+current-PR record, validates the reviewed assessment, and independently checks it
 again before publishing a patch. Historical records and arbitrary metadata paths
 remain protected. Missing current-head impact checks block model work; failed
 impact checks are eligible for a reviewed metadata repair. Source fixes retain
@@ -61,7 +64,7 @@ the existing application checks and the three-attempt budget.
 The release engine lives in [KanopyAI/kanopy-release-engine](https://github.com/KanopyAI/kanopy-release-engine). This
 repository's workflows run it from a pinned commit, never from this checkout, so a PR
 cannot change the validator that judges it. Change the engine with a PR there, then
-update the checkout's `ref` and version comment here by hand, with a stamped internal
+update the checkout's `ref` and version comment here by hand, with a validated internal
 impact entry.
 For local commands, check out the engine at that pin and point `RELEASE_ENGINE` at it:
 `gh repo clone KanopyAI/kanopy-release-engine ~/kanopy-release-engine`, then
@@ -71,3 +74,14 @@ prints the pin, and `kanopy_release.py stamp|check` default the base branch.
 The autofix controller
 and report schema live in [KanopyAI/kanopy-autofix](https://github.com/KanopyAI/kanopy-autofix).
 Consume engine fixes through reviewed version-update PRs; see the autofix runbook.
+
+## Engine updates and transient failures
+
+Use the commit of a published, tested release from
+[kanopy-release-engine](https://github.com/KanopyAI/kanopy-release-engine/releases),
+with its version in the workflow comment. A feature-branch tip can omit fixes
+already merged into the engine's main branch, even after that feature merges.
+The v1.2.0 release combines PR-based assessment coverage with bounded retries
+for temporary evidence-read failures. HTTP 502/503/504 while reading deployment
+history indicates unavailable evidence, not a missing assessment. Permission
+errors, missing assessments and incomplete deployment evidence still fail.
