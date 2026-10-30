@@ -246,12 +246,32 @@
                 "type": "null"
               }
             ],
+            "description": "Timestamp of the last event on this page; pass it as `before` for the next (older) page. Null when there are no older events. Events that share this timestamp can be skipped at the page boundary: use `next_cursor` instead.",
             "title": "Next Before"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Opaque cursor for the next (older) page: pass it back unchanged as `cursor`. Null when there are no older events. Recommended for SIEM and other complete exports: no event is skipped or repeated across pages, even when many events share a timestamp.",
+            "title": "Next Cursor"
+          },
+          "staff_access_logging_enabled": {
+            "default": false,
+            "description": "Whether this organization includes anonymous staff job-access entries in customer reports.",
+            "title": "Staff Access Logging Enabled",
+            "type": "boolean"
           }
         },
         "required": [
           "events",
-          "next_before"
+          "next_before",
+          "next_cursor"
         ],
         "title": "AuditEventPage",
         "type": "object"
@@ -1138,6 +1158,73 @@
         "title": "CategoryOption",
         "type": "object"
       },
+      "Change": {
+        "properties": {
+          "api_impact": {
+            "default": "",
+            "title": "Api Impact",
+            "type": "string"
+          },
+          "audience": {
+            "default": "",
+            "title": "Audience",
+            "type": "string"
+          },
+          "availability": {
+            "default": "",
+            "title": "Availability",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "customer_action": {
+            "default": "",
+            "title": "Customer Action",
+            "type": "string"
+          },
+          "data_effect": {
+            "default": "",
+            "title": "Data Effect",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "effective_date": {
+            "default": "",
+            "title": "Effective Date",
+            "type": "string"
+          },
+          "notice_url": {
+            "default": "",
+            "title": "Notice Url",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "added",
+              "improved",
+              "fixed",
+              "security",
+              "deprecated"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "body"
+        ],
+        "title": "Change",
+        "type": "object"
+      },
       "ClientSummary": {
         "properties": {
           "company_name": {
@@ -1154,6 +1241,15 @@
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "display_unit": {
+            "default": "ft",
+            "enum": [
+              "ft",
+              "m"
+            ],
+            "title": "Display Unit",
             "type": "string"
           },
           "email": {
@@ -2418,6 +2514,19 @@
             ],
             "description": "No-GPS path: recover scale from pole_height_m instead of a GPS track",
             "title": "Use Pole Scale Reference"
+          },
+          "video_fingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^v[1-9][0-9]{0,2}:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Content fingerprint of the original video file, computed before any transcode (v1:<64 lowercase hex characters>). Lets Kanopy recognise the same file uploaded again, even while this upload is in progress.",
+            "title": "Video Fingerprint"
           }
         },
         "required": [
@@ -2623,6 +2732,11 @@
             },
             "title": "Admins",
             "type": "array"
+          },
+          "device_upload_credentials_enabled": {
+            "default": true,
+            "title": "Device Upload Credentials Enabled",
+            "type": "boolean"
           },
           "display_unit": {
             "default": "ft",
@@ -3659,6 +3773,19 @@
       },
       "PresignPartResponse": {
         "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the presigned URL stops accepting the part (ISO 8601, UTC). Request a new URL for the same part number after this time.",
+            "title": "Expires At"
+          },
           "part_number": {
             "title": "Part Number",
             "type": "integer"
@@ -3864,6 +3991,19 @@
             "description": "Client-generated idempotency key for upload job creation",
             "title": "Upload Request Id"
           },
+          "video_fingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^v[1-9][0-9]{0,2}:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Content fingerprint of the original video file, computed before any transcode (v1:<64 lowercase hex characters>). Lets Kanopy recognise the same file uploaded again, even while this upload is in progress.",
+            "title": "Video Fingerprint"
+          },
           "voltage_class": {
             "anyOf": [
               {
@@ -3906,6 +4046,49 @@
           "label"
         ],
         "title": "ProblemOption",
+        "type": "object"
+      },
+      "ProductUpdates": {
+        "properties": {
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Newest published CalVer version, or null before the first release.",
+            "title": "Latest Version"
+          },
+          "releases": {
+            "description": "Complete published history, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/Release"
+            },
+            "title": "Releases",
+            "type": "array"
+          },
+          "revision": {
+            "default": "",
+            "description": "Opaque feed revision. Compare for equality to detect release or upcoming-notice changes.",
+            "title": "Revision",
+            "type": "string"
+          },
+          "upcoming": {
+            "description": "Planned notices; availability is not confirmed.",
+            "items": {
+              "$ref": "#/components/schemas/Upcoming"
+            },
+            "title": "Upcoming",
+            "type": "array"
+          }
+        },
+        "required": [
+          "releases"
+        ],
+        "title": "ProductUpdates",
         "type": "object"
       },
       "ProjectCreate": {
@@ -4165,6 +4348,18 @@
             "title": "Policy Recompute Pending",
             "type": "boolean"
           },
+          "policy_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Updated At"
+          },
           "pruning_margin_ft": {
             "anyOf": [
               {
@@ -4333,6 +4528,44 @@
         "title": "ProjectUpdate",
         "type": "object"
       },
+      "Release": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "summary": {
+            "default": "",
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^\\d{4}\\.\\d{2}\\.[1-9]\\d*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "date",
+          "title",
+          "changes"
+        ],
+        "title": "Release",
+        "type": "object"
+      },
       "RoutePlanCommit": {
         "properties": {
           "excludedStarts": {
@@ -4401,6 +4634,79 @@
         "title": "RoutePlanRequest",
         "type": "object"
       },
+      "SpanCircuitMembership": {
+        "description": "Current circuit evidence for this capture or assessment source.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "provisional": {
+            "default": false,
+            "title": "Provisional",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "review_flags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Review Flags",
+            "type": "array"
+          },
+          "status": {
+            "default": "unavailable",
+            "enum": [
+              "assigned",
+              "unresolved",
+              "unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "SpanCircuitMembership",
+        "type": "object"
+      },
       "SpanListResponse": {
         "properties": {
           "limit": {
@@ -4436,6 +4742,12 @@
                 "type": "null"
               }
             ]
+          },
+          "unsynced_job_count": {
+            "default": 0,
+            "description": "Visible analysis jobs without current span summaries; metric rankings and totals omit these jobs.",
+            "title": "Unsynced Job Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -4482,6 +4794,16 @@
               }
             ],
             "title": "Chunk Id"
+          },
+          "circuit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SpanCircuitMembership"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "circuit_count": {
             "anyOf": [
@@ -5265,6 +5587,19 @@
             ],
             "title": "Best Camera Pose C2W"
           },
+          "captured_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Video capture time, falling back to the job's upload time.",
+            "title": "Captured At"
+          },
           "center_in_best_camera_frame": {
             "anyOf": [
               {
@@ -5303,6 +5638,18 @@
               }
             ],
             "title": "Chunk Index"
+          },
+          "clearance_band": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Clearance band for this observation's measurements under the current project policy.",
+            "title": "Clearance Band"
           },
           "encroachment": {
             "anyOf": [
@@ -5822,6 +6169,21 @@
             ],
             "title": "Fall In Risk Margin M"
           },
+          "frame_job_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Matched jobs whose images the caller may read; independent of the selected job filter.",
+            "title": "Frame Job Ids"
+          },
           "frames": {
             "items": {
               "additionalProperties": true,
@@ -6281,6 +6643,43 @@
         "title": "TreePublic",
         "type": "object"
       },
+      "Upcoming": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/Change"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "planned",
+            "title": "Status",
+            "type": "string"
+          },
+          "timing": {
+            "title": "Timing",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "timing",
+          "changes"
+        ],
+        "title": "Upcoming",
+        "type": "object"
+      },
       "UploadHeartbeatRequest": {
         "properties": {
           "job_ids": {
@@ -6383,7 +6782,7 @@
       "WebhookCreate": {
         "properties": {
           "events": {
-            "description": "Events to subscribe to. For customer organizations, empty means all customer events (['job.published', 'job.uploaded']). Internal lifecycle events remain available only to Kanopy staff. Valid values: ['cleanup.completed', 'job.canceled', 'job.cleaned', 'job.completed', 'job.failed', 'job.processing', 'job.published', 'job.uploaded']",
+            "description": "Events to subscribe to. For customer organizations, empty means ['job.published', 'job.uploaded']. Product-update events (['product_update.announced', 'product_update.released']) are sent only when listed. Internal lifecycle events remain available only to Kanopy staff. Valid values: ['cleanup.completed', 'job.canceled', 'job.cleaned', 'job.completed', 'job.failed', 'job.processing', 'job.published', 'job.uploaded', 'product_update.announced', 'product_update.released']",
             "items": {
               "type": "string"
             },
@@ -6868,7 +7267,7 @@
             }
           },
           {
-            "description": "True = only Kanopy staff actions (staff-access report)",
+            "description": "True = only anonymous staff job-access events, when enabled for this organization",
             "in": "query",
             "name": "actor_is_staff",
             "required": false,
@@ -6881,7 +7280,7 @@
                   "type": "null"
                 }
               ],
-              "description": "True = only Kanopy staff actions (staff-access report)",
+              "description": "True = only anonymous staff job-access events, when enabled for this organization",
               "title": "Actor Is Staff"
             }
           },
@@ -6924,7 +7323,7 @@
             }
           },
           {
-            "description": "Keyset cursor: return events older than this",
+            "description": "Keyset cursor: return events older than this. Events sharing the boundary timestamp can be skipped; prefer `cursor`.",
             "in": "query",
             "name": "before",
             "required": false,
@@ -6938,7 +7337,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Keyset cursor: return events older than this",
+              "description": "Keyset cursor: return events older than this. Events sharing the boundary timestamp can be skipped; prefer `cursor`.",
               "title": "Before"
             }
           },
@@ -6952,6 +7351,24 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "The `next_cursor` value from the previous page, passed back unchanged. Returns the events after that position, newest first, without skipping or repeating events that share a timestamp. Use this rather than `before` for SIEM pulls. Cannot be combined with `before`.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `next_cursor` value from the previous page, passed back unchanged. Returns the events after that position, newest first, without skipping or repeating events that share a timestamp. Use this rather than `before` for SIEM pulls. Cannot be combined with `before`.",
+              "title": "Cursor"
             }
           },
           {
@@ -8044,7 +8461,7 @@
     },
     "/jobs/upload-heartbeat": {
       "post": {
-        "description": "Keep reserved-but-not-yet-started uploads from expiring.\n\nA job created ahead of its upload is held for 30 minutes; if no video data\nhas arrived by then it is treated as abandoned and deleted. That is the\nright default for a closed browser tab, but it also expires the tail of any\nbatch that reserves its jobs up front and uploads them one at a time.\n\nCall this periodically \u2014 every few minutes \u2014 with the jobs still waiting to\nupload, and their hold is renewed. Jobs whose upload has already begun are\nunaffected and need no heartbeat.\n\n``refreshed`` lists the jobs whose hold was renewed. ``missing`` lists ids\nthat no longer exist: already expired, deleted, or not yours. Those cannot\nbe revived, so treat them as failed and re-create the job to retry.",
+        "description": "Keep reserved and in-progress uploads from expiring.\n\nA job created ahead of its upload is held for 30 minutes; if no video data\nhas arrived by then it is treated as abandoned and deleted. That is the\nright default for a closed browser tab, but it also expires the tail of any\nbatch that reserves its jobs up front and uploads them one at a time. A\nmultipart upload that goes quiet is likewise expired after a period with no\nupload activity.\n\nCall this periodically \u2014 every few minutes \u2014 with the jobs still waiting to\nupload or still uploading in parts, and their hold is renewed. Requesting a\npart URL also renews a multipart upload, so one that keeps sending parts\nneeds no heartbeat.\n\n``refreshed`` lists the jobs whose hold was renewed. ``missing`` lists ids\nthat no longer exist: already expired, deleted, or not yours. Those cannot\nbe revived, so treat them as failed and re-create the job to retry.",
         "operationId": "upload_heartbeat",
         "parameters": [
           {
@@ -8286,6 +8703,102 @@
           }
         ],
         "summary": "Update Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}/asset/{asset_path}": {
+      "get": {
+        "description": "Fetch a file using the asset URL returned in a tree or pole frame's `imagePath`, or a known job-relative path such as `frames_for_reconstruction/frame_000722.jpg`, `video.mp4` or a file under `segmentation/`. This endpoint serves individual files, not directory listings. The legacy `/api/jobs/{job_id}/asset/...` URLs and `/api/v1/jobs/{job_id}/asset/...` both accept an API key in the `Authorization: Bearer` header with `resources:read`.\n\nThe key must have access to the job's organization. Generated results must be published; upload previews and the original input video can be read before publication. Follow 302 redirects for S3 downloads, or use `proxy=true` to stream bytes through the API. Files in cold storage return 409; unavailable files return 404.",
+        "operationId": "get_job_asset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_path",
+            "required": true,
+            "schema": {
+              "title": "Asset Path",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Stream S3 bytes through the API instead of redirecting.",
+            "in": "query",
+            "name": "proxy",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Stream S3 bytes through the API instead of redirecting.",
+              "title": "Proxy",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The asset bytes."
+          },
+          "302": {
+            "description": "Redirect to a short-lived presigned download URL."
+          },
+          "404": {
+            "description": "Job or asset unavailable to this caller."
+          },
+          "409": {
+            "description": "The file is in long-term cold storage."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Download a job evidence frame, video or segmentation file",
         "tags": [
           "jobs"
         ]
@@ -8917,6 +9430,54 @@
         "summary": "Download Job Table",
         "tags": [
           "jobs"
+        ]
+      }
+    },
+    "/product-updates": {
+      "get": {
+        "description": "Read reviewed releases (newest first) and upcoming notices.\n\nRequires an eligible customer session or API key with `resources:read`.\nIncludes the complete published history, including older UI updates.\nPoll periodically and compare `revision` to detect changes, including edits\nto upcoming notices; `latest_version` identifies the newest release only.\nTo be notified instead of polling, subscribe an organization webhook to\n`product_update.released` and/or `product_update.announced`; these are\nsent only to webhooks that list them explicitly.",
+        "operationId": "product_updates",
+        "parameters": [
+          {
+            "description": "Target organization. Defaults to the key owner's organization. Must be currently accessible and within the key's organization scope; must match resource/path targets.",
+            "in": "header",
+            "name": "X-Kanopy-Organization-Id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductUpdates"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing, invalid or expired credential"
+          },
+          "403": {
+            "description": "Customer access or resources:read scope required"
+          },
+          "503": {
+            "description": "Product updates temporarily unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Product Updates",
+        "tags": [
+          "product-updates"
         ]
       }
     },
@@ -10303,6 +10864,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Organization inventory allowance exceeded; respect Retry-After."
+          },
+          "503": {
+            "description": "Shared inventory capacity temporarily unavailable; respect Retry-After."
           }
         },
         "security": [
@@ -10402,7 +10969,7 @@
             }
           },
           {
-            "description": "Column to order by",
+            "description": "Column to order by. Metric sorts rank synced summaries only; unsynced_job_count reports omitted jobs.",
             "in": "query",
             "name": "sort",
             "required": false,
@@ -10415,7 +10982,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Column to order by",
+              "description": "Column to order by. Metric sorts rank synced summaries only; unsynced_job_count reports omitted jobs.",
               "title": "Sort"
             }
           },
@@ -10438,13 +11005,25 @@
             }
           },
           {
-            "description": "Include collection-wide span totals",
+            "description": "Include current circuit membership with each span",
+            "in": "query",
+            "name": "include_circuits",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Include current circuit membership with each span",
+              "title": "Include Circuits",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Include totals over current synced summaries; complete is false while analysis jobs are unsynced or verdicts are missing.",
             "in": "query",
             "name": "include_totals",
             "required": false,
             "schema": {
               "default": false,
-              "description": "Include collection-wide span totals",
+              "description": "Include totals over current synced summaries; complete is false while analysis jobs are unsynced or verdicts are missing.",
               "title": "Include Totals",
               "type": "boolean"
             }
@@ -10480,6 +11059,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Organization inventory allowance exceeded; respect Retry-After."
+          },
+          "503": {
+            "description": "Shared inventory capacity temporarily unavailable; respect Retry-After."
           }
         },
         "security": [
@@ -10805,6 +11390,12 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Organization inventory allowance exceeded; respect Retry-After."
+          },
+          "503": {
+            "description": "Shared inventory capacity temporarily unavailable; respect Retry-After."
           }
         },
         "security": [
