@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           repository: KanopyAI/kanopy-release-engine
-          ref: 7cfddb0cb29236894e86d88ceabce1ba92045ee1 # v1.0.0
+          ref: 5f52395242253fa9aa58e8524ec299a9b8b7252a # v1.2.0
           token: ${{ steps.engine-token.outputs.token || secrets.RELEASE_ENGINE_READ_TOKEN || secrets.REVIEW_FIXER_TOKEN }}
           path: release-engine
           persist-credentials: false
