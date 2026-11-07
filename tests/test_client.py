@@ -531,12 +531,19 @@ def test_report_never_sends_key_outside_job_asset_api(tmp_path, image_path) -> N
     assert "Authorization" not in storage_requests[0].headers
 
 
-def test_report_omits_unavailable_frame_with_warning(tmp_path) -> None:
+@pytest.mark.parametrize("report", ["tree", "pole"])
+@pytest.mark.parametrize(
+    ("status_code", "headers"),
+    [(404, {}), (302, {}), (302, {"Location": ""})],
+)
+def test_report_omits_unavailable_frame_with_warning(
+    tmp_path, report, status_code, headers
+) -> None:
     def asset_handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"detail": "Job not found"})
+        return httpx.Response(status_code, headers=headers)
 
     with (
-        pytest.warns(UserWarning, match=r"HTTP 404"),
+        pytest.warns(UserWarning, match=rf"HTTP {status_code}"),
         Kanopy(
             "key",
             base_url="https://example.test/api/v1",
@@ -544,7 +551,7 @@ def test_report_omits_unavailable_frame_with_warning(tmp_path) -> None:
             upload_transport=httpx.MockTransport(_no_storage_requests),
         ) as client,
     ):
-        pdf = _download_report(client, "tree", tmp_path / "report.pdf")
+        pdf = _download_report(client, report, tmp_path / "report.pdf")
 
     assert pdf.startswith(b"%PDF-")
     assert _embedded_images(pdf) == 0

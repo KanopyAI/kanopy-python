@@ -1637,7 +1637,13 @@ class Kanopy:
             return self._upload_client.get(resolved, follow_redirects=True)
         response = self._request("GET", str(resolved))
         if response.is_redirect:
-            location = resolved.join(response.headers["location"])
+            location_header = response.headers.get("location")
+            if not location_header:
+                raise KanopyError(
+                    "Report image redirect was missing a Location header",
+                    status_code=response.status_code,
+                )
+            location = resolved.join(location_header)
             return self._upload_client.get(location, follow_redirects=True)
         return response
 
