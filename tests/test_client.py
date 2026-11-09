@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import io
 import json
+import re
+import warnings
 
 import httpx
 import pytest
@@ -387,6 +389,172 @@ def test_download_tree_report_generates_pdf_from_public_record(tmp_path) -> None
 
     assert result == destination
     assert destination.read_bytes().startswith(b"%PDF-")
+
+
+FRAME_ASSET_PATH = (
+    "/api/jobs/job-1/asset/frames_for_reconstruction/frame_000722.jpg?proxy=true"
+)
+
+
+def _jpeg() -> bytes:
+    from PIL import Image
+
+    output = io.BytesIO()
+    Image.new("RGB", (32, 18), (20, 120, 40)).save(output, format="JPEG")
+    return output.getvalue()
+
+
+def _report_record(image_path: str) -> dict:
+    frame = {"jobId": "job-1", "frameIndex": 722, "imagePath": image_path}
+    return {"id": "asset-1", "frames": [frame], "all_frames": [frame]}
+
+
+def _report_api(image_path: str, asset_handler=None):
+    """Serve the tree/pole record, then delegate image requests."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/projects/project-1/trees/tree-1":
+            return httpx.Response(200, json=_report_record(image_path))
+        if request.url.path == "/api/v1/projects/project-1/poles":
+            return httpx.Response(200, json={"poles": [_report_record(image_path)]})
+        assert asset_handler is not None, f"unexpected API request {request.url}"
+        return asset_handler(request)
+
+    return handler
+
+
+def _download_report(client: Kanopy, report: str, destination) -> bytes:
+    if report == "tree":
+        client.download_tree_report("project-1", "tree-1", destination)
+    else:
+        client.download_pole_report("project-1", "pole-1", destination)
+    return destination.read_bytes()
+
+
+def _embedded_images(pdf: bytes) -> int:
+    return len(re.findall(rb"/Subtype\s*/Image", pdf))
+
+
+def _no_storage_requests(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"unexpected storage request {request.url}")
+
+
+@pytest.mark.parametrize("report", ["tree", "pole"])
+def test_report_embeds_frame_from_job_asset_api_with_key(tmp_path, report) -> None:
+    image = _jpeg()
+    asset_requests: list[httpx.Request] = []
+
+    def asset_handler(request: httpx.Request) -> httpx.Response:
+        asset_requests.append(request)
+        return httpx.Response(
+            200, content=image, headers={"Content-Type": "image/jpeg"}
+        )
+
+    with (
+        warnings.catch_warnings(),
+        Kanopy(
+            "kpy_test_secret",
+            base_url="https://example.test/api/v1",
+            transport=httpx.MockTransport(_report_api(FRAME_ASSET_PATH, asset_handler)),
+            upload_transport=httpx.MockTransport(_no_storage_requests),
+        ) as client,
+    ):
+        warnings.simplefilter("error")
+        pdf = _download_report(client, report, tmp_path / "report.pdf")
+
+    assert _embedded_images(pdf) == 1
+    # The documented frame link is joined to the API origin, not appended to
+    # the /api/v1 base path, and authenticates like any other API call.
+    assert [str(request.url) for request in asset_requests] == [
+        f"https://example.test{FRAME_ASSET_PATH}"
+    ]
+    assert asset_requests[0].headers["Authorization"] == "Bearer kpy_test_secret"
+
+
+def test_report_follows_asset_storage_redirect_without_credentials(tmp_path) -> None:
+    image = _jpeg()
+    storage_requests: list[httpx.Request] = []
+    signed_url = "https://storage.example.test/frame.jpg?X-Amz-Signature=abc"
+
+    def asset_handler(request: httpx.Request) -> httpx.Response:
+        assert request.headers["Authorization"] == "Bearer kpy_test_secret"
+        return httpx.Response(302, headers={"Location": signed_url})
+
+    def storage_handler(request: httpx.Request) -> httpx.Response:
+        storage_requests.append(request)
+        return httpx.Response(200, content=image)
+
+    with Kanopy(
+        "kpy_test_secret",
+        base_url="https://example.test/api/v1",
+        organization_id="00000000-0000-0000-0000-000000000001",
+        transport=httpx.MockTransport(_report_api(FRAME_ASSET_PATH, asset_handler)),
+        upload_transport=httpx.MockTransport(storage_handler),
+    ) as client:
+        pdf = _download_report(client, "tree", tmp_path / "report.pdf")
+
+    assert _embedded_images(pdf) == 1
+    assert [str(request.url) for request in storage_requests] == [signed_url]
+    assert "Authorization" not in storage_requests[0].headers
+    assert "X-Kanopy-Organization-Id" not in storage_requests[0].headers
+
+
+@pytest.mark.parametrize(
+    "image_path",
+    [
+        "https://cdn.example.test/api/jobs/job-1/asset/frame.jpg",
+        "http://example.test/api/jobs/job-1/asset/frame.jpg",
+        "https://example.test:8443/api/jobs/job-1/asset/frame.jpg",
+        "/api/v1/auth/me",
+        "/api/jobs/job-1/outputs/output-1",
+        "/api/jobs/job-1/asset/%2e%2e/%2e%2e/auth/me",
+    ],
+)
+def test_report_never_sends_key_outside_job_asset_api(tmp_path, image_path) -> None:
+    image = _jpeg()
+    storage_requests: list[httpx.Request] = []
+
+    def storage_handler(request: httpx.Request) -> httpx.Response:
+        storage_requests.append(request)
+        return httpx.Response(200, content=image)
+
+    with Kanopy(
+        "kpy_test_secret",
+        base_url="https://example.test/api/v1",
+        transport=httpx.MockTransport(_report_api(image_path)),
+        upload_transport=httpx.MockTransport(storage_handler),
+    ) as client:
+        pdf = _download_report(client, "tree", tmp_path / "report.pdf")
+
+    assert _embedded_images(pdf) == 1
+    assert len(storage_requests) == 1
+    assert "Authorization" not in storage_requests[0].headers
+
+
+@pytest.mark.parametrize("report", ["tree", "pole"])
+@pytest.mark.parametrize(
+    ("status_code", "headers"),
+    [(404, {}), (302, {}), (302, {"Location": ""})],
+)
+def test_report_omits_unavailable_frame_with_warning(
+    tmp_path, report, status_code, headers
+) -> None:
+    def asset_handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, headers=headers)
+
+    with (
+        pytest.warns(UserWarning, match=rf"HTTP {status_code}"),
+        Kanopy(
+            "key",
+            base_url="https://example.test/api/v1",
+            transport=httpx.MockTransport(_report_api(FRAME_ASSET_PATH, asset_handler)),
+            upload_transport=httpx.MockTransport(_no_storage_requests),
+        ) as client,
+    ):
+        pdf = _download_report(client, report, tmp_path / "report.pdf")
+
+    assert pdf.startswith(b"%PDF-")
+    assert _embedded_images(pdf) == 0
 
 
 def test_large_upload_sends_ordered_parts_and_queues_job(tmp_path) -> None:

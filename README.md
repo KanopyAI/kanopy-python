@@ -187,6 +187,12 @@ kanopy.download_tree_report(project_id, tree_id, "tree-analysis.pdf")
 kanopy.download_pole_report(project_id, pole_id, "pole-analysis.pdf")
 ```
 
+Reports embed up to six evidence frames, fetched from the job asset endpoint
+named in each frame's `imagePath` with the same API key, so the key needs job
+data download access. The key is sent only to that endpoint on the configured
+API origin; storage redirects and any other image URLs are fetched without it.
+A frame that cannot be fetched is left out with a warning.
+
 For a small project, `download_project_folder` streams a complete project ZIP
 directly. For large projects, the async helper creates or reuses a background
 export, polls it, and downloads the resulting presigned archive without sending

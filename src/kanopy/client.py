@@ -8,6 +8,7 @@ import json
 import math
 import os
 import random
+import re
 import time
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -44,6 +45,9 @@ JsonObject = dict[str, Any]
 ProgressCallback = Callable[[int, int], None]
 VALID_CAPTURE_DEVICES = frozenset({"drone", "action_cam", "phone"})
 FLIGHT_LOG_SUFFIXES = frozenset({".csv", ".txt"})
+# Frame ``imagePath`` links use the public job asset operation
+# (GET /jobs/{job_id}/asset/{asset_path}), usually via its legacy /api alias.
+JOB_ASSET_PATH = re.compile(r"/api(?:/v1)?/jobs/[^/]+/asset/.+")
 
 # Public contract operations used by this first SDK surface. Contract tests
 # verify both the method/path and stable OpenAPI operation ID.
@@ -1566,7 +1570,7 @@ class Kanopy:
                 frame.get("frameName") or frame.get("frame_name") or frame.get("jobId")
             )
             if caption:
-                story.append(Paragraph(escape(str(caption)), styles["Caption"]))
+                story.append(Paragraph(escape(str(caption)), styles["Italic"]))
             story.append(Spacer(1, 0.15 * inch))
             embedded += 1
             if embedded >= 6:
@@ -1594,31 +1598,59 @@ class Kanopy:
         return str(value)
 
     def _fetch_report_asset(self, url: str) -> bytes | None:
-        """Fetch report imagery WITHOUT ever attaching the API key.
+        """Fetch report imagery, sending the API key only to the job asset API.
 
-        Asset URLs come from server payloads (frame image paths). They are
-        expected to be presigned or otherwise publicly fetchable; the paths
-        are not part of the integration contract, so sending the customer's
-        credential to whatever string the payload contains is never correct —
-        neither same-origin (out-of-contract, rejected in block mode) nor
-        cross-origin (credential replay to a third party).
+        Frame ``imagePath`` values link to the documented job asset operation
+        on the API origin, which authenticates with the API key like any other
+        API call. Any other URL a payload contains is fetched on the
+        credential-free client: forwarding the customer's credential to
+        whatever host or route a payload names would be credential replay.
+        Storage redirects from the asset operation are followed without the
+        key, as downloads do.
         """
         try:
-            # Resolve relative paths against the API origin so the request is
-            # well-formed — still on the credential-free client.
-            resolved = str(httpx.URL(str(self._client.base_url)).join(url))
-            response = self._upload_client.get(resolved, follow_redirects=True)
-            if not response.is_success:
-                warnings.warn(
-                    f"Report image could not be fetched (HTTP {response.status_code}); "
-                    "the generated report will omit it.",
-                    stacklevel=2,
-                )
-                return None
-            return response.content
+            response = self._report_asset_response(url)
+        except KanopyError as error:
+            status_code = error.status_code
         except httpx.HTTPError:
             warnings.warn(
                 "Report image could not be fetched; the generated report will omit it.",
                 stacklevel=2,
             )
             return None
+        else:
+            if response.is_success:
+                return response.content
+            status_code = response.status_code
+        warnings.warn(
+            f"Report image could not be fetched (HTTP {status_code}); "
+            "the generated report will omit it.",
+            stacklevel=2,
+        )
+        return None
+
+    def _report_asset_response(self, url: str) -> httpx.Response:
+        # Join relative paths against the API origin. httpx's base-URL merge
+        # would instead append "/api/jobs/..." to the "/api/v1/" base path.
+        resolved = httpx.URL(str(self._client.base_url)).join(url)
+        if not self._is_job_asset_url(resolved):
+            return self._upload_client.get(resolved, follow_redirects=True)
+        response = self._request("GET", str(resolved))
+        if response.is_redirect:
+            location_header = response.headers.get("location")
+            if not location_header:
+                raise KanopyError(
+                    "Report image redirect was missing a Location header",
+                    status_code=response.status_code,
+                )
+            location = resolved.join(location_header)
+            return self._upload_client.get(location, follow_redirects=True)
+        return response
+
+    def _is_job_asset_url(self, url: httpx.URL) -> bool:
+        api = self._client.base_url
+        return (
+            (url.scheme, url.host, url.port) == (api.scheme, api.host, api.port)
+            and JOB_ASSET_PATH.fullmatch(url.path) is not None
+            and not {".", ".."}.intersection(url.path.split("/"))
+        )

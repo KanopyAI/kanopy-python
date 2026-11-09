@@ -32,3 +32,15 @@ def test_every_sdk_operation_has_a_real_client_method() -> None:
     assert all(
         callable(getattr(Kanopy, method_name, None)) for method_name in SDK_OPERATIONS
     )
+
+
+def test_report_imagery_uses_reviewed_job_asset_operation() -> None:
+    from kanopy.client import JOB_ASSET_PATH
+
+    schema = _contract()
+    operation = schema["paths"]["/jobs/{job_id}/asset/{asset_path}"]["get"]
+    assert operation["operationId"] == "get_job_asset"
+    frame = "/jobs/job-1/asset/frames_for_reconstruction/frame_000722.jpg"
+    # Versioned mount and the legacy /api alias that frame imagePath uses.
+    assert JOB_ASSET_PATH.fullmatch(schema["servers"][0]["url"] + frame)
+    assert JOB_ASSET_PATH.fullmatch("/api" + frame)
