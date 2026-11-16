@@ -1,0 +1,34 @@
+{
+  "id": "sdk-retries-feedback",
+  "type": "added",
+  "summary": "Python SDK clients can configure API retries and submit, list and retrieve project feedback using the public feedback taxonomy.",
+  "audience": "Python SDK integrations that manage their own retries or submit project feedback.",
+  "customer_action": "After kanopy-ai 0.9.0 is published, upgrade to use max_retries=0 or the new project feedback methods. Existing integrations need no changes.",
+  "api": {
+    "impact": "compatible",
+    "assessment": "Adds the keyword-only Kanopy max_retries constructor option, accepting a non-negative integer (booleans rejected). The default remains two additional attempts for eligible API requests. Zero disables SDK API retries and their sleeps for HTTP errors and transport failures; positive values select the additional-attempt budget per client. Existing retryable statuses, methods, idempotency-key handling, Retry-After cap of 120 seconds per wait, exception types and authentication remain unchanged. This includes authenticated report-image API reads; a failed report image is still omitted with a warning. Streamed downloads and credential-free storage image fetches gain no retries, polling is unchanged, and multipart part transfer retries remain separately controlled by part_retries. Adds get_feedback_taxonomy, submit_project_feedback, list_project_feedback and get_project_feedback against existing public endpoints. Submission requires a caller-owned UUID request_id, preserves it across application retries, accepts the documented optional asset/observation fields and is not automatically retried. Server-side validation and authorization remain authoritative. Feedback lists return Page with items and next_cursor from the response body, no total_count, and explicit filters. The existing API key and optional organization header are used; no permissions are expanded, no server routes or response schemas change, and no dependencies or supported Python versions change. Bumps the package version from 0.8.1 to 0.9.0 for these additive capabilities.",
+    "endpoints": [
+      "GET /api/v1/feedback/taxonomy",
+      "POST /api/v1/projects/{project_id}/feedback",
+      "GET /api/v1/projects/{project_id}/feedback",
+      "GET /api/v1/projects/{project_id}/feedback/{feedback_id}"
+    ]
+  },
+  "availability": "coordinated",
+  "rollout": "Requires publication of kanopy-ai 0.9.0 through the reviewed release workflow and an integration upgrade. Merging source and passing tests do not establish package availability. Uses existing API endpoints, introduces no backend feature flags and does not activate the pending backend HTTP optimization or export-limit rollout.",
+  "data_effect": "No existing data, processing results or reports are rewritten and no rerun is required. An explicit feedback submission creates a feedback report under existing API permissions and deduplication rules. Changing retries affects request attempts, latency and surfaced errors only.",
+  "dependencies": [
+    "Reviewed publication of kanopy-ai 0.9.0."
+  ],
+  "notice_url": "",
+  "notice_date": "",
+  "effective_date": "",
+  "developer_notice": {
+    "publish": true,
+    "reason": "Integrators need the new retry configuration and project feedback methods documented before adopting the SDK release.",
+    "summary": "Python SDK 0.9.0 adds configurable API retries and project feedback methods.",
+    "action": "Upgrade once published. Use max_retries=0 if your application manages API retries. For feedback submissions, generate and retain a UUID request_id and reuse it with the same payload on retry. Existing integrations may retain the default retry behavior.",
+    "availability": "Available after kanopy-ai 0.9.0 is published and the integration upgrades.",
+    "data_effect": "No existing data changes or processing reruns. Feedback is created only when explicitly submitted."
+  }
+}
