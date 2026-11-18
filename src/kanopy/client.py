@@ -28,8 +28,7 @@ from .errors import KanopyError, KanopyUploadError
 from .models import Page
 
 DEFAULT_BASE_URL = "https://app.kanopy-ai.com/api/v1"
-# Bounded, opt-out retry on 429: the platform sends Retry-After on every
-# throttle response; honoring it is part of the API contract.
+# Default number of additional attempts; max_retries=0 disables API retries.
 MAX_RATE_LIMIT_RETRIES = 2
 MAX_RETRY_AFTER_SECONDS = 120.0
 DEFAULT_MULTIPART_PART_SIZE = 64 * 1024 * 1024
@@ -95,6 +94,22 @@ SDK_OPERATIONS: dict[str, tuple[str, str, str]] = {
         "post",
         "/projects/{project_id}/unarchive",
         "unarchive_project",
+    ),
+    "get_feedback_taxonomy": ("get", "/feedback/taxonomy", "get_feedback_taxonomy"),
+    "submit_project_feedback": (
+        "post",
+        "/projects/{project_id}/feedback",
+        "submit_feedback",
+    ),
+    "list_project_feedback": (
+        "get",
+        "/projects/{project_id}/feedback",
+        "list_project_feedback",
+    ),
+    "get_project_feedback": (
+        "get",
+        "/projects/{project_id}/feedback/{feedback_id}",
+        "get_project_feedback",
     ),
     "list_jobs": ("get", "/jobs", "list_jobs"),
     "list_project_jobs": ("get", "/projects/{project_id}/jobs", "list_project_jobs"),
@@ -194,9 +209,15 @@ class Kanopy:
         transport: httpx.BaseTransport | None = None,
         upload_transport: httpx.BaseTransport | None = None,
         upload_timeout: float | httpx.Timeout = 300.0,
+        max_retries: int = MAX_RATE_LIMIT_RETRIES,
     ) -> None:
         if not api_key.strip():
             raise ValueError("api_key must not be empty")
+        if isinstance(max_retries, bool) or not isinstance(max_retries, int):
+            raise TypeError("max_retries must be a non-negative integer")
+        if max_retries < 0:
+            raise ValueError("max_retries must be a non-negative integer")
+        self._max_retries = max_retries
         # Fixed per client, avoiding mutable tenant context during concurrent
         # uploads. The storage client below never receives API credentials or
         # organization headers.
@@ -240,18 +261,18 @@ class Kanopy:
         retryable = normalized_method in RETRYABLE_METHODS or any(
             str(name).lower() == "idempotency-key" for name in headers
         )
-        for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+        for attempt in range(self._max_retries + 1):
             try:
                 response = self._client.request(method, path.lstrip("/"), **kwargs)
             except httpx.TransportError:
-                if not retryable or attempt >= MAX_RATE_LIMIT_RETRIES:
+                if not retryable or attempt >= self._max_retries:
                     raise
                 time.sleep(self._backoff_seconds(attempt))
                 continue
             if (
                 retryable
                 and response.status_code in RETRYABLE_STATUS_CODES
-                and attempt < MAX_RATE_LIMIT_RETRIES
+                and attempt < self._max_retries
             ):
                 time.sleep(self._retry_after_seconds(response, attempt))
                 continue
@@ -274,6 +295,9 @@ class Kanopy:
 
     @staticmethod
     def _backoff_seconds(attempt: int) -> float:
+        # Saturate before exponentiation even with a very large retry budget.
+        if attempt >= math.ceil(math.log2(MAX_RETRY_AFTER_SECONDS)):
+            return MAX_RETRY_AFTER_SECONDS
         return min(
             MAX_RETRY_AFTER_SECONDS, (1.0 * 2**attempt) + random.uniform(0.0, 0.5)
         )
@@ -440,6 +464,98 @@ class Kanopy:
 
     def unarchive_project(self, project_id: str) -> JsonObject:
         return self._object(self._json("POST", f"/projects/{project_id}/unarchive"))
+
+    # Feedback
+
+    def get_feedback_taxonomy(self) -> JsonObject:
+        """Return the supported feedback categories and problem types."""
+        return self._object(self._json("GET", "/feedback/taxonomy"))
+
+    def submit_project_feedback(
+        self,
+        project_id: str,
+        *,
+        request_id: str | UUID,
+        category: str,
+        problem_type: str,
+        note: str,
+        asset_type: str | None = None,
+        asset_id: str | None = None,
+        job_id: str | None = None,
+        observation_id: str | None = None,
+        instance_id: int | None = None,
+        chunk_index: int | None = None,
+        source: str = "api",
+        expected_value: str | None = None,
+    ) -> JsonObject:
+        """Submit feedback; reuse the same request_id UUID when retrying.
+
+        POST is not automatically retried. Keep the request ID and payload
+        together so an application retry cannot create a duplicate report.
+        """
+        payload = {
+            "request_id": str(UUID(str(request_id))),
+            "category": category,
+            "problem_type": problem_type,
+            "note": note,
+            "source": source,
+            "asset_type": asset_type,
+            "asset_id": asset_id,
+            "job_id": job_id,
+            "observation_id": observation_id,
+            "instance_id": instance_id,
+            "chunk_index": chunk_index,
+            "expected_value": expected_value,
+        }
+        return self._object(
+            self._json(
+                "POST",
+                f"/projects/{project_id}/feedback",
+                json={
+                    key: value for key, value in payload.items() if value is not None
+                },
+            )
+        )
+
+    def list_project_feedback(
+        self,
+        project_id: str,
+        *,
+        asset_id: str | None = None,
+        job_id: str | None = None,
+        status: str | None = None,
+        category: str | None = None,
+        limit: int = 50,
+        cursor: str | None = None,
+    ) -> Page[JsonObject]:
+        """List your own project feedback, using the body's next_cursor."""
+        params = {
+            "asset_id": asset_id,
+            "job_id": job_id,
+            "status": status,
+            "category": category,
+            "limit": limit,
+            "cursor": cursor,
+        }
+        payload = self._object(
+            self._json(
+                "GET",
+                f"/projects/{project_id}/feedback",
+                params={
+                    key: value for key, value in params.items() if value is not None
+                },
+            )
+        )
+        next_cursor = payload.get("next_cursor")
+        if next_cursor is not None and not isinstance(next_cursor, str):
+            raise TypeError("Kanopy API returned an invalid feedback cursor")
+        return Page(items=self._objects(payload.get("items")), next_cursor=next_cursor)
+
+    def get_project_feedback(self, project_id: str, feedback_id: str) -> JsonObject:
+        """Retrieve one of your feedback reports in an accessible project."""
+        return self._object(
+            self._json("GET", f"/projects/{project_id}/feedback/{feedback_id}")
+        )
 
     # Jobs
 

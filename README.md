@@ -88,6 +88,26 @@ requests are never retried unless they carry an idempotency key. Downloads are
 written to a temporary file, length-checked when available, and atomically
 renamed so a partial response cannot replace a valid export.
 
+API reads use two additional attempts by default (three attempts total). Pass
+`max_retries=0` when your application owns rate limiting and retries:
+
+```python
+with Kanopy(api_key="kpy_live_...", max_retries=0) as kanopy:
+    project = kanopy.get_project(project_id)
+```
+
+`max_retries` must be a non-negative integer and applies per client to API
+requests, including authenticated report-image reads. It controls retries for
+transport failures and HTTP 408, 425, 429, 500, 502, 503 and 504. Each retry wait
+is capped at 120 seconds; that is not a total call timeout. With zero retries,
+the first HTTP error or transport exception reaches your application immediately
+after the request fails; report-image failures still omit the image with a warning.
+This option does not add retries to streamed downloads
+or storage image fetches, or disable polling. Multipart part transfers have a
+separate `upload_large(..., part_retries=1)` option for one attempt per part;
+the default is three attempts. Mutating API requests without an idempotency key
+are still never automatically retried.
+
 `upload_large` sends the original source bytes without client-side compression.
 For declared `drone` and `action_cam` uploads it requests background server
 preparation by default: Kanopy validates and localizes the original, normalizes
@@ -240,6 +260,49 @@ while True:
         break
     page = kanopy.list_jobs(cursor=page.next_cursor, limit=100)
 ```
+
+## Project feedback
+
+Use `get_feedback_taxonomy()` to discover supported categories and problem types.
+Feedback methods use the client's API key and optional organization context;
+listing and retrieving feedback returns your own reports in accessible projects.
+
+```python
+from uuid import uuid4
+
+taxonomy = kanopy.get_feedback_taxonomy()
+# Save this ID with your submission and reuse it with the same payload on retry.
+request_id = uuid4()
+report = kanopy.submit_project_feedback(
+    project_id,
+    request_id=request_id,
+    category="other",
+    problem_type="other",
+    note="Please review the results for this project.",
+)
+report = kanopy.get_project_feedback(project_id, report["id"])
+
+page = kanopy.list_project_feedback(project_id, status="open", limit=50)
+while True:
+    for report in page.items:
+        print(report["id"], report["status"])
+    if not page.has_next:
+        break
+    page = kanopy.list_project_feedback(
+        project_id, status="open", limit=50, cursor=page.next_cursor
+    )
+```
+
+Submission requires a caller-generated UUID `request_id`; the SDK does not
+automatically retry this POST. Reusing the ID on an application retry allows
+the API to avoid duplicate reports after a lost response. Optional submission
+fields include `asset_type`, `asset_id`, `job_id`, `observation_id`, `instance_id`,
+`chunk_index`, `source` (default `"api"`), and `expected_value`. The API validates
+category/problem combinations and access to the referenced assets.
+
+Lists support `asset_id`, `job_id`, `status`, `category`, `limit`, and `cursor`.
+The SDK converts the feedback response body's `items` and `next_cursor` into a
+`Page`; `total_count` is unavailable. Preserve your filters when following cursors.
 
 ## Errors and request IDs
 
